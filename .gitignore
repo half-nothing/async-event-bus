@@ -1,0 +1,7 @@
+.pdm.toml
+.pdm-python
+.pdm-build/
+__pypackages__/
+.venv/
+.idea/
+**egg-info/

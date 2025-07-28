@@ -1,0 +1,38 @@
+[project]
+name = "py-event-bus"
+version = "0.1.0"
+description = "A simple python event bus for python3"
+authors = [
+    { name = "Half_nothing", email = "Half_nothing@163.com" },
+]
+dependencies = [
+    "loguru>=0.7.3"
+]
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+keywords = [
+    "python",
+    "event-bus"
+]
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Natural Language :: Chinese (Simplified)"
+]
+
+[project.optional-dependencies]
+dev = [
+    "setuptools>=80.9.0",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.pdm]
+distribution = true
