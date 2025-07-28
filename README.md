@@ -1,11 +1,20 @@
 # py-event-bus
+
 A simple event bus for python3
 
+[![GitHub release](https://img.shields.io/github/v/release/half-nothing/async-event-bus)](https://www.github.com/half-nothing/async-event-bus/releases/latest)
+![GitHub commits since latest release](https://img.shields.io/github/commits-since/half-nothing/async-event-bus/latest/main)
+![GitHub top language](https://img.shields.io/github/languages/top/half-nothing/async-event-bus)
+![GPLv3](https://img.shields.io/badge/License-GPLv3-blue)
+
 ## Quick Start
+
 1. install package with pip or any tools you like
+
 ```shell
-pip install py-event-bus
+pip install async-event-bus
 ```
+
 2. use example code under
 
 ```python
@@ -40,4 +49,5 @@ if __name__ == "__main__":
     loop.run_until_complete(main())
 
 ```
+
 3. Check out the examples under the 'examples' folder for more help  
