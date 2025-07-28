@@ -3,7 +3,7 @@ import sys
 
 from loguru import logger
 
-from py_event_bus import EventBus
+from async_event_bus import EventBus
 
 bus = EventBus()
 logger.remove()

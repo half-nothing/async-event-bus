@@ -1,5 +1,5 @@
 [project]
-name = "py-event-bus"
+name = "async-event-bus"
 version = "0.1.0"
 description = "A simple python event bus for python3"
 authors = [

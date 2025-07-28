@@ -6,14 +6,15 @@ A simple event bus for python3
 ```shell
 pip install py-event-bus
 ```
-2. use example code under  
+2. use example code under
+
 ```python
 import asyncio
 import sys
 
 from loguru import logger
 
-from py_event_bus import EventBus
+from async_event_bus import EventBus
 
 bus = EventBus()
 logger.remove()

@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from loguru import logger
 
-from py_event_bus import Event, EventBus
+from async_event_bus import Event, EventBus
 
 bus = EventBus()
 logger.remove()
