@@ -73,7 +73,6 @@ class BusFilter(BaseModule):
 
         def decorator(func: FilterCallback):
             self.add_global_filter(func, weight)
-            logger.debug(f"Global filter {func.__name__} has been added, weight={weight}")
             return func
 
         return decorator
@@ -97,6 +96,7 @@ class BusFilter(BaseModule):
         :param weight: 事件的选择权重
         """
         self._global_filters.add_callback(callback, weight)
+        logger.debug(f"Global filter {callback.__name__} has been added, weight={weight}")
 
     def remove_global_filter(self, callback: FilterCallback) -> None:
         """
@@ -134,7 +134,6 @@ class BusFilter(BaseModule):
 
         def decorator(func: FilterCallback):
             self.add_filter(event, func, weight)
-            logger.debug(f"Event filter {func.__name__} has been added to event {event}, weight={weight}")
             return func
 
         return decorator
@@ -161,6 +160,7 @@ class BusFilter(BaseModule):
         if event not in self._filters:
             self._filters[event] = EventCallbackContainer()
         self._filters[event].add_callback(callback, weight)
+        logger.debug(f"Event filter {callback.__name__} has been added to event {event}, weight={weight}")
 
     def remove_filter(self, event: Union[Event, str], callback: FilterCallback) -> None:
         """

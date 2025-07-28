@@ -1,13 +1,3 @@
-# py-event-bus
-A simple event bus for python3
-
-## Quick Start
-1. install package with pip or any tools you like
-```shell
-pip install py-event-bus
-```
-2. use example code under  
-```python
 import asyncio
 import sys
 
@@ -37,6 +27,3 @@ async def main():
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     loop.run_until_complete(main())
-
-```
-3. Check out the examples under the 'examples' folder for more help  
