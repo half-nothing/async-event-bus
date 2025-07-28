@@ -4,6 +4,7 @@ from typing import Any, Type, Union, Callable, Awaitable
 
 from loguru import logger
 
+from .module_exceptions import MultipleError
 from ..event import Event, EventCallbackContainer
 
 SubScriberCallback: Type = Callable[..., Union[Any, Awaitable[Any]]]
@@ -18,6 +19,7 @@ class BaseBus(ABC):
     def __init__(self, max_concurrent_tasks: int = 10):
         self._subscribers: dict[str, EventCallbackContainer] = {}
         self._semaphore = Semaphore(max_concurrent_tasks)
+        self._raise_exception = False
 
     def on(self, event: Union[Event, str], *, weight: int = 1) -> Callable:
         """
@@ -41,6 +43,7 @@ class BaseBus(ABC):
         def decorator(func: SubScriberCallback):
             self.subscribe(event, func, weight=weight)
             logger.debug(f"{func.__name__} has subscribed to {event}, weight={weight}")
+            return func
 
         return decorator
 
@@ -110,13 +113,40 @@ class BaseBus(ABC):
         :param event: 要触发的事件
         """
         if event in self._subscribers:
+            exceptions = []
+
             for callback in self._subscribers[event].sync_callback:
-                callback(*args, **kwargs)
-            await gather(
-                *(self._run_with_semaphore(callback, *args, **kwargs) for callback in
-                  self._subscribers[event].async_callback),
-                return_exceptions=True)
+                try:
+                    callback(*args, **kwargs)
+                except Exception as e:
+                    if self._raise_exception:
+                        raise e
+                    exceptions.append(e)
+
+            async_handlers = [self._run_with_semaphore(callback, *args, **kwargs) for callback in
+                              self._subscribers[event].async_callback]
+
+            if self._raise_exception:
+                await gather(*async_handlers, return_exceptions=False)
+            else:
+                results = await gather(*async_handlers, return_exceptions=True)
+                if not (len(results) == 1 and results[0] is None):
+                    exceptions.extend(results)
+
+            if (exception_size := len(exceptions)) != 0:
+                if exception_size == 1:
+                    raise exceptions[0]
+                else:
+                    raise MultipleError(exceptions)
 
     @abstractmethod
     def clear(self):
         self._subscribers.clear()
+
+    @property
+    def raise_exception_immediately(self) -> bool:
+        return self._raise_exception
+
+    @raise_exception_immediately.setter
+    def raise_exception_immediately(self, value: bool) -> None:
+        self._raise_exception = value

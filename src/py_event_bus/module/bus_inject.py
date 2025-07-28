@@ -1,4 +1,4 @@
-from typing import Any, Awaitable, Callable, Type, Union
+from typing import Any, Awaitable, Callable, Tuple, Type, Union
 
 from loguru import logger
 
@@ -21,28 +21,33 @@ class BusInject(BaseModule):
         self._injects.clear()
         self._global_injects.clear()
 
-    async def resolve(self, event: Union[Event, str], *args, **kwargs) -> bool:
-        await self._apply_global_injects(*args, **kwargs)
-        await self._apply_event_injects(event, *args, **kwargs)
+    async def resolve(self, event: Union[Event, str], args: tuple, kwargs: dict[str, Any]) -> bool:
+        kwargs.update(await self._apply_global_injects(*args, **kwargs))
+        kwargs.update(await self._apply_event_injects(event, *args, **kwargs))
         return True
 
-    async def _apply_event_injects(self, event: Union[Event, str], *args, **kwargs):
+    async def _apply_event_injects(self, event: Union[Event, str], *args, **kwargs) -> dict[str, Any]:
+        add_kwargs = {}
         if event in self._injects:
             for callback in self._injects[event].sync_callback:
-                kwargs.update(callback(*args, **kwargs))
+                add_kwargs.update(callback(*args, **kwargs))
             for callback in self._injects[event].async_callback:
-                kwargs.update(await callback(*args, **kwargs))
+                add_kwargs.update(await callback(*args, **kwargs))
+        return add_kwargs
 
-    async def _apply_global_injects(self, *args, **kwargs):
+    async def _apply_global_injects(self, *args, **kwargs) -> dict[str, Any]:
+        add_kwargs = {}
         for callback in self._global_injects.sync_callback:
-            kwargs.update(callback(*args, **kwargs))
+            add_kwargs.update(callback(*args, **kwargs))
         for callback in self._global_injects.async_callback:
-            kwargs.update(await callback(*args, **kwargs))
+            add_kwargs.update(await callback(*args, **kwargs))
+        return add_kwargs
 
-    def global_event_inject(self, weight: int = 1) -> Callable:
+    def global_event_inject(self, weight: int = 1) -> Callable[[InjectCallback], InjectCallback]:
         def decorator(func: InjectCallback):
             self.add_global_inject(func, weight)
             logger.debug(f"Global inject {func.__name__} has been added, weight={weight}")
+            return func
 
         return decorator
 
@@ -52,10 +57,11 @@ class BusInject(BaseModule):
     def remove_global_inject(self, callback: InjectCallback) -> None:
         self._global_injects.remove_callback(callback)
 
-    def event_inject(self, event: Union[Event, str], weight: int = 1) -> Callable:
+    def event_inject(self, event: Union[Event, str], weight: int = 1) -> Callable[[InjectCallback], InjectCallback]:
         def decorator(func: InjectCallback):
             self.add_inject(event, func, weight)
             logger.debug(f"Event inject {func.__name__} has been added, weight={weight}")
+            return func
 
         return decorator
 

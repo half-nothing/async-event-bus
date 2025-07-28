@@ -27,6 +27,9 @@ classifiers = [
 [project.optional-dependencies]
 dev = [
     "setuptools>=80.9.0",
+    "pytest>=8.4.1",
+    "pytest-html>=4.1.1",
+    "pytest-asyncio>=1.1.0",
 ]
 
 [build-system]

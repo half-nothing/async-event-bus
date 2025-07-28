@@ -22,13 +22,13 @@ class BusFilter(BaseModule):
         self._global_filters.clear()
 
     async def resolve(self, event: Union[Event, str], args, kwargs) -> bool:
-        if await self._apply_global_filter(event, args, kwargs):
+        if await self._apply_global_filter(event, *args, **kwargs):
             return True
-        if await self._apply_filter(event, args, kwargs):
+        if await self._apply_filter(event, *args, **kwargs):
             return True
         return False
 
-    async def _apply_filter(self, event: Union[Event, str], args, kwargs) -> bool:
+    async def _apply_filter(self, event: Union[Event, str], *args, **kwargs) -> bool:
         if event in self._filters:
             for callback in self._filters[event].sync_callback:
                 if callback(*args, **kwargs):
@@ -38,7 +38,7 @@ class BusFilter(BaseModule):
                     return True
         return False
 
-    async def _apply_global_filter(self, event: Union[Event, str], args, kwargs) -> bool:
+    async def _apply_global_filter(self, event: Union[Event, str], *args, **kwargs) -> bool:
         for callback in self._global_filters.sync_callback:
             if callback(event, *args, **kwargs):
                 return True
@@ -47,7 +47,7 @@ class BusFilter(BaseModule):
                 return True
         return False
 
-    def global_event_filter(self, weight: int = 1) -> Callable[[FilterCallback], None]:
+    def global_event_filter(self, weight: int = 1) -> Callable[[FilterCallback], FilterCallback]:
         """
         全局过滤器修饰器\n
         使用修饰器来向事件总线注册一个全局事件过滤器函数，这个过滤器函数可以是异步函数，也可以是同步函数。\n
@@ -74,6 +74,7 @@ class BusFilter(BaseModule):
         def decorator(func: FilterCallback):
             self.add_global_filter(func, weight)
             logger.debug(f"Global filter {func.__name__} has been added, weight={weight}")
+            return func
 
         return decorator
 
@@ -109,7 +110,7 @@ class BusFilter(BaseModule):
         """
         self._global_filters.remove_callback(callback)
 
-    def event_filter(self, event: Union[Event, str], weight: int = 1) -> Optional[Callable]:
+    def event_filter(self, event: Union[Event, str], weight: int = 1) -> Callable[[FilterCallback], FilterCallback]:
         """
         事件过滤器修饰器\n
         使用修饰器来向事件总线注册一个事件过滤器函数，这个过滤器函数可以是异步函数，也可以是同步函数。\n
@@ -134,6 +135,7 @@ class BusFilter(BaseModule):
         def decorator(func: FilterCallback):
             self.add_filter(event, func, weight)
             logger.debug(f"Event filter {func.__name__} has been added to event {event}, weight={weight}")
+            return func
 
         return decorator
 
