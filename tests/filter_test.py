@@ -1,7 +1,7 @@
 import asyncio
 import sys
 from enum import auto
-from typing import Any
+from typing import Any, Union
 
 import pytest
 from loguru import logger
@@ -18,8 +18,8 @@ class MessageEvent(Event):
 
 
 @bus.global_event_filter()
-async def global_filter(*args: list[Any], **kwargs: dict[str, Any]) -> bool:
-    logger.info(f"Global filter called")
+async def global_filter(event: Union[Event, str], *args: list[Any], **kwargs: dict[str, Any]) -> bool:
+    logger.info(f"Global filter called, event: {event}")
     return False
 
 
