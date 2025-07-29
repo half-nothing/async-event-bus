@@ -38,8 +38,8 @@ async def async_message_create(message: str, *args, **kwargs) -> None:
 
 async def main():
     await asyncio.gather(
-        bus.publish(MessageEvent.MESSAGE_CREATE, "This is a test message"),
-        bus.publish(MessageEvent.MESSAGE_CREATE, "This is a forbidden test message")
+        bus.emit(MessageEvent.MESSAGE_CREATE, "This is a test message"),
+        bus.emit(MessageEvent.MESSAGE_CREATE, "This is a forbidden test message")
     )
 
 

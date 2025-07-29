@@ -14,11 +14,11 @@ class EventBus(BaseBus, BusFilter, BusInject):
         BusFilter.__init__(self)
         BusInject.__init__(self)
 
-    async def publish(self, event: Union[Event, str], *args, **kwargs) -> None:
+    async def before_emit(self, event: Union[Event, str], *args, **kwargs) -> tuple[bool, dict]:
         await BusInject.resolve(self, event, args, kwargs)
-        if await BusFilter.resolve(self, event, args, kwargs):
-            return
-        await super().publish(event, *args, **kwargs)
+        return await BusFilter.resolve(self, event, args, kwargs), kwargs
 
     def clear(self):
         super().clear()
+        BusFilter.clear(self)
+        BusInject.clear(self)

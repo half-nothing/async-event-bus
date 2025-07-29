@@ -82,15 +82,15 @@ class BaseBus(ABC):
         if event in self._subscribers:
             self._subscribers[event].remove_callback(callback)
 
-    def publish_sync(self, event: Union[Event, str], *args, **kwargs) -> None:
+    def emit_sync(self, event: Union[Event, str], *args, **kwargs) -> None:
         """
         以同步方式触发事件（底层还是异步执行）\n
         示例:
-            publish_sync('message_create', "This is a message", user="Half")
+            emit_sync('message_create', "This is a message", user="Half")
 
         :param event: 要触发的事件
         """
-        run(self.publish(event, *args, **kwargs))
+        run(self.emit(event, *args, **kwargs))
 
     async def _run_with_semaphore(self, coroutine: Callable, *args, **kwargs):
         """
@@ -101,17 +101,24 @@ class BaseBus(ABC):
             return await coroutine(*args, **kwargs)
 
     @abstractmethod
-    async def publish(self, event: Union[Event, str], *args, **kwargs) -> None:
+    async def before_emit(self, event: Union[Event, str], *args, **kwargs) -> tuple[bool, dict]:
+        return False, {}
+
+    async def emit(self, event: Union[Event, str], *args, **kwargs) -> None:
         """
         异步触发事件\n
         执行顺序:
             函数的权重越大，越先被执行，同步函数优先于异步函数执行。\n
             其中，最后的异步事件处理函数权重没有作用，因为会使用asyncio.gather并发执行，执行先后顺序也就失去了意义\n
         示例:
-            await publish('message_create', "This is a message", user="Half")
+            await emit('message_create', "This is a message", user="Half")
 
         :param event: 要触发的事件
         """
+        skip, extra_kwargs = await self.before_emit(event, *args, **kwargs)
+        if skip:
+            return
+        kwargs.update(extra_kwargs)
         if event in self._subscribers:
             exceptions = []
 

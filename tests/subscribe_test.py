@@ -37,10 +37,10 @@ async def async_message_delete(message: str, *args: list[Any], **kwargs: dict[st
 @pytest.mark.asyncio
 async def test_async_subscribe():
     await asyncio.gather(
-        bus.publish(MessageEvent.MESSAGE_CREATE, "This is a test message"),
-        bus.publish(MessageEvent.MESSAGE_CREATE, "This is also a test message"),
-        bus.publish(MessageEvent.MESSAGE_DELETE, "This is a test delete message"),
-        bus.publish(MessageEvent.MESSAGE_DELETE, "This is also a test delete message")
+        bus.emit(MessageEvent.MESSAGE_CREATE, "This is a test message"),
+        bus.emit(MessageEvent.MESSAGE_CREATE, "This is also a test message"),
+        bus.emit(MessageEvent.MESSAGE_DELETE, "This is a test delete message"),
+        bus.emit(MessageEvent.MESSAGE_DELETE, "This is also a test delete message")
     )
     bus.unsubscribe(MessageEvent.MESSAGE_CREATE, async_message_create)
     bus.unsubscribe(MessageEvent.MESSAGE_DELETE, async_message_delete)
@@ -59,10 +59,10 @@ def message_delete(message: str, *args: list[Any], **kwargs: dict[str, Any]) -> 
 
 
 def test_sync_subscribe() -> None:
-    bus.publish_sync(MessageEvent.MESSAGE_CREATE, "This is a test message")
-    bus.publish_sync(MessageEvent.MESSAGE_CREATE, "This is also a test message")
-    bus.publish_sync(MessageEvent.MESSAGE_DELETE, "This is a test delete message")
-    bus.publish_sync(MessageEvent.MESSAGE_DELETE, "This is also a test delete message")
+    bus.emit_sync(MessageEvent.MESSAGE_CREATE, "This is a test message")
+    bus.emit_sync(MessageEvent.MESSAGE_CREATE, "This is also a test message")
+    bus.emit_sync(MessageEvent.MESSAGE_DELETE, "This is a test delete message")
+    bus.emit_sync(MessageEvent.MESSAGE_DELETE, "This is also a test delete message")
     bus.unsubscribe(MessageEvent.MESSAGE_CREATE, message_create)
     bus.unsubscribe(MessageEvent.MESSAGE_DELETE, message_delete)
 

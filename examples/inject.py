@@ -43,7 +43,7 @@ async def async_message_create(message: str, *args, **kwargs) -> None:
 
 
 async def main():
-    await bus.publish(MessageEvent.MESSAGE_CREATE, "This is a test message")
+    await bus.emit(MessageEvent.MESSAGE_CREATE, "This is a test message")
 
 
 if __name__ == "__main__":

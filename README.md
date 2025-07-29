@@ -37,10 +37,10 @@ async def message_handler(message: str, *args, **kwargs) -> None:
 
 async def main():
     await asyncio.gather(
-        bus.publish("message", "Hello"),
-        bus.publish("message", "This is a test message"),
-        bus.publish("message", "Send from python"),
-        bus.publish("message", "This is also a test message")
+        bus.emit("message", "Hello"),
+        bus.emit("message", "This is a test message"),
+        bus.emit("message", "Send from python"),
+        bus.emit("message", "This is also a test message")
     )
 
 

@@ -45,7 +45,7 @@ async def async_message_create(message: str, *args: list[Any], **kwargs: dict[st
 
 @pytest.mark.asyncio
 async def test_inject():
-    await bus.publish(MessageEvent.MESSAGE_CREATE, "This is a test message")
+    await bus.emit(MessageEvent.MESSAGE_CREATE, "This is a test message")
 
 
 if __name__ == "__main__":
