@@ -1,4 +1,4 @@
-from typing import Awaitable, Callable, Optional, Type, Union
+from typing import Awaitable, Callable, Type, Union
 
 from loguru import logger
 

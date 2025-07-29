@@ -1,6 +1,6 @@
-from asyncio import Semaphore, gather, get_event_loop, new_event_loop, run, run_coroutine_threadsafe, set_event_loop
 from abc import ABC, abstractmethod
-from typing import Any, Type, Union, Callable, Awaitable
+from asyncio import Semaphore, gather, get_event_loop, new_event_loop, run_coroutine_threadsafe, set_event_loop
+from typing import Any, Awaitable, Callable, Type, Union
 
 from loguru import logger
 

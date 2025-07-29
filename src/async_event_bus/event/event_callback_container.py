@@ -3,9 +3,9 @@ from typing import Callable, Union
 
 from loguru import logger
 
-from .event_callback_factory import EventCallbackFactory
 from .async_event_callback import AsyncEventCallback
 from .event_callback import EventCallback
+from .event_callback_factory import EventCallbackFactory
 from .sync_event_callback import SyncEventCallback
 
 

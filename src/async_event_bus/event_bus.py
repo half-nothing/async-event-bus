@@ -1,7 +1,7 @@
 from typing import Union
 
-from .module import BaseBus, BusFilter, BusInject
 from .event import Event
+from .module import BaseBus, BusFilter, BusInject
 
 
 class EventBus(BaseBus, BusFilter, BusInject):

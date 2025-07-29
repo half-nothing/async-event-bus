@@ -1,7 +1,7 @@
 from asyncio import iscoroutinefunction
 
-from .event_callback import EventCallback, T
 from .async_event_callback import AsyncEventCallback
+from .event_callback import EventCallback, T
 from .sync_event_callback import SyncEventCallback
 
 
