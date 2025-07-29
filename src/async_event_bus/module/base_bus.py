@@ -1,4 +1,4 @@
-from asyncio import Semaphore, gather, run
+from asyncio import Semaphore, gather, get_event_loop, new_event_loop, run, run_coroutine_threadsafe, set_event_loop
 from abc import ABC, abstractmethod
 from typing import Any, Type, Union, Callable, Awaitable
 
@@ -90,7 +90,24 @@ class BaseBus(ABC):
 
         :param event: 要触发的事件
         """
-        run(self.emit(event, *args, **kwargs))
+        try:
+            loop = get_event_loop()
+            if loop and loop.is_running():
+                future = run_coroutine_threadsafe(
+                    self.emit(event, *args, **kwargs),
+                    loop
+                )
+                future.result()
+        except RuntimeError:
+            loop = new_event_loop()
+            set_event_loop(loop)
+            try:
+                loop.run_until_complete(
+                    self.emit(event, *args, **kwargs)
+                )
+            finally:
+                loop.close()
+                set_event_loop(None)
 
     async def _run_with_semaphore(self, coroutine: Callable, *args, **kwargs):
         """
