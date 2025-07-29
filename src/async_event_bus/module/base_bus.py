@@ -163,7 +163,6 @@ class BaseBus(ABC):
                 else:
                     raise MultipleError(exceptions)
 
-    @abstractmethod
     def clear(self):
         self._subscribers.clear()
 
