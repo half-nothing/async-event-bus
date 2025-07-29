@@ -1,6 +1,6 @@
 [project]
 name = "async-event-bus"
-version = "0.1.0"
+version = "0.2.0"
 description = "A simple python event bus for python3"
 authors = [
     { name = "Half_nothing", email = "Half_nothing@163.com" },
