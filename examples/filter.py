@@ -1,3 +1,5 @@
+# 事件过滤器
+# Event filters
 import asyncio
 import sys
 from enum import auto

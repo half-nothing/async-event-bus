@@ -1,3 +1,5 @@
+# 事件总线的基础用法
+# Basic usage of event bus
 import asyncio
 import sys
 

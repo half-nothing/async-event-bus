@@ -1,3 +1,5 @@
+# 事件注入器
+# Event injector
 import asyncio
 import sys
 from datetime import datetime

@@ -1,3 +1,5 @@
+# 自定义事件
+# Custom events
 import asyncio
 import sys
 from enum import auto
