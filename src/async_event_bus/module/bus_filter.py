@@ -3,7 +3,7 @@ from typing import Awaitable, Callable, Type, Union
 from loguru import logger
 
 from .base_module import BaseModule
-from ..event import Event, EventCallbackContainer
+from ..event import EventType, EventCallbackContainer
 
 FilterCallback: Type = Callable[..., Union[bool, Awaitable[bool]]]
 
@@ -21,14 +21,14 @@ class BusFilter(BaseModule):
         self._filters.clear()
         self._global_filters.clear()
 
-    async def resolve(self, event: Union[Event, str], args, kwargs) -> bool:
+    async def resolve(self, event: EventType, args, kwargs) -> bool:
         if await self._apply_global_filter(event, *args, **kwargs):
             return True
         if await self._apply_filter(event, *args, **kwargs):
             return True
         return False
 
-    async def _apply_filter(self, event: Union[Event, str], *args, **kwargs) -> bool:
+    async def _apply_filter(self, event: EventType, *args, **kwargs) -> bool:
         if event in self._filters:
             for callback in self._filters[event].sync_callback:
                 if callback(*args, **kwargs):
@@ -38,7 +38,7 @@ class BusFilter(BaseModule):
                     return True
         return False
 
-    async def _apply_global_filter(self, event: Union[Event, str], *args, **kwargs) -> bool:
+    async def _apply_global_filter(self, event: EventType, *args, **kwargs) -> bool:
         for callback in self._global_filters.sync_callback:
             if callback(event, *args, **kwargs):
                 return True
@@ -110,7 +110,7 @@ class BusFilter(BaseModule):
         """
         self._global_filters.remove_callback(callback)
 
-    def event_filter(self, event: Union[Event, str], weight: int = 1) -> Callable[[FilterCallback], FilterCallback]:
+    def event_filter(self, event: EventType, weight: int = 1) -> Callable[[FilterCallback], FilterCallback]:
         """
         事件过滤器修饰器\n
         使用修饰器来向事件总线注册一个事件过滤器函数，这个过滤器函数可以是异步函数，也可以是同步函数。\n
@@ -138,7 +138,7 @@ class BusFilter(BaseModule):
 
         return decorator
 
-    def add_filter(self, event: Union[Event, str], callback: FilterCallback, weight: int = 1) -> None:
+    def add_filter(self, event: EventType, callback: FilterCallback, weight: int = 1) -> None:
         """
         注册事件过滤器\n
         用于注册事件过滤器的函数，也可以单独使用\n
@@ -162,7 +162,7 @@ class BusFilter(BaseModule):
         self._filters[event].add_callback(callback, weight)
         logger.debug(f"Event filter {callback.__name__} has been added to event {event}, weight={weight}")
 
-    def remove_filter(self, event: Union[Event, str], callback: FilterCallback) -> None:
+    def remove_filter(self, event: EventType, callback: FilterCallback) -> None:
         """
         移除事件过滤器
 

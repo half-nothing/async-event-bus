@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable, Type, Union
 from loguru import logger
 
 from .base_module import BaseModule
-from ..event import Event, EventCallbackContainer
+from ..event import EventType, EventCallbackContainer
 
 InjectCallback: Type = Callable[..., Union[dict[str, Any], Awaitable[dict[str, Any]]]]
 
@@ -21,12 +21,12 @@ class BusInject(BaseModule):
         self._injects.clear()
         self._global_injects.clear()
 
-    async def resolve(self, event: Union[Event, str], args: tuple, kwargs: dict[str, Any]) -> bool:
+    async def resolve(self, event: EventType, args: tuple, kwargs: dict[str, Any]) -> bool:
         kwargs.update(await self._apply_global_injects(*args, **kwargs))
         kwargs.update(await self._apply_event_injects(event, *args, **kwargs))
         return True
 
-    async def _apply_event_injects(self, event: Union[Event, str], *args, **kwargs) -> dict[str, Any]:
+    async def _apply_event_injects(self, event: EventType, *args, **kwargs) -> dict[str, Any]:
         add_kwargs = {}
         if event in self._injects:
             for callback in self._injects[event].sync_callback:
@@ -57,19 +57,19 @@ class BusInject(BaseModule):
     def remove_global_inject(self, callback: InjectCallback) -> None:
         self._global_injects.remove_callback(callback)
 
-    def event_inject(self, event: Union[Event, str], weight: int = 1) -> Callable[[InjectCallback], InjectCallback]:
+    def event_inject(self, event: EventType, weight: int = 1) -> Callable[[InjectCallback], InjectCallback]:
         def decorator(func: InjectCallback):
             self.add_inject(event, func, weight)
             return func
 
         return decorator
 
-    def add_inject(self, event: Union[Event, str], callback: InjectCallback, weight: int = 1) -> None:
+    def add_inject(self, event: EventType, callback: InjectCallback, weight: int = 1) -> None:
         if event not in self._injects:
             self._injects[event] = EventCallbackContainer()
         self._injects[event].add_callback(callback, weight)
         logger.debug(f"Event inject {callback.__name__} has been added to event {event}, weight={weight}")
 
-    def remove_inject(self, event: Union[Event, str], callback: InjectCallback) -> None:
+    def remove_inject(self, event: EventType, callback: InjectCallback) -> None:
         if event in self._injects:
             self._injects[event].remove_callback(callback)

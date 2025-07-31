@@ -8,7 +8,7 @@ from typing import Union
 
 from loguru import logger
 
-from async_event_bus import BaseBus, BaseModule, Event
+from async_event_bus import BaseBus, BaseModule, EnumEvent
 
 
 # 自定义事件总线模块, 需要继承自BaseModule
@@ -19,7 +19,7 @@ class CustomModule(BaseModule):
     # Executing the module logic, note that args and kwargs here are variables rather than variables,
     # and they accept the parameters passed by the event bus and can modify them
     # Returning to True will stop the propagation of the event
-    async def resolve(self, event: Union[Event, str], args, kwargs) -> bool:
+    async def resolve(self, event: Union[EnumEvent, str], args, kwargs) -> bool:
         logger.info(f"Resolve event: {event}, {args}, {kwargs}")
         return False
 
@@ -36,7 +36,7 @@ class CustomEventBus(BaseBus, CustomModule):
         super().__init__()
         self._module = CustomModule()
 
-    async def before_emit(self, event: Union[Event, str], *args, **kwargs) -> tuple[bool, dict]:
+    async def before_emit(self, event: Union[EnumEvent, str], *args, **kwargs) -> tuple[bool, dict]:
         # 这种也可以，但是这样外部调用模块接口会比较麻烦
         # This is also possible, but it will be more troublesome to call the module interface externally
         # if await self._module.resolve(event, args, kwargs):
@@ -61,7 +61,7 @@ logger.add(sys.stdout, level="TRACE")
 
 # 通过继承Event类创建自定义事件
 # Create custom events by inheriting the Event class
-class MessageEvent(Event):
+class MessageEvent(EnumEvent):
     MESSAGE_CREATE = auto()
     MESSAGE_DELETE = auto()
 

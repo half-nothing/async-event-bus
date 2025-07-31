@@ -5,7 +5,7 @@ from typing import Any, Awaitable, Callable, Type, Union
 from loguru import logger
 
 from .module_exceptions import MultipleError
-from ..event import Event, EventCallbackContainer
+from ..event import EventType, EventCallbackContainer
 
 SubScriberCallback: Type = Callable[..., Union[Any, Awaitable[Any]]]
 
@@ -21,7 +21,7 @@ class BaseBus(ABC):
         self._semaphore = Semaphore(max_concurrent_tasks)
         self._raise_exception = False
 
-    def on(self, event: Union[Event, str], *, weight: int = 1) -> Callable:
+    def on(self, event: EventType, *, weight: int = 1) -> Callable:
         """
         订阅事件修饰器\n
         使用修饰器来向事件总线注册一个事件处理函数，这个事件处理函数可以是异步函数，也可以是同步函数。\n
@@ -47,7 +47,7 @@ class BaseBus(ABC):
 
         return decorator
 
-    def subscribe(self, event: Union[Event, str], callback: SubScriberCallback, *, weight: int = 1) -> None:
+    def subscribe(self, event: EventType, callback: SubScriberCallback, *, weight: int = 1) -> None:
         """
         订阅事件\n
         用于订阅事件修饰器内部的函数，也可以单独使用\n
@@ -68,7 +68,7 @@ class BaseBus(ABC):
             self._subscribers[event] = EventCallbackContainer()
         self._subscribers[event].add_callback(callback, weight)
 
-    def unsubscribe(self, event: Union[Event, str], callback: SubScriberCallback) -> None:
+    def unsubscribe(self, event: EventType, callback: SubScriberCallback) -> None:
         """
         取消订阅事件\n
         示例::\n
@@ -82,7 +82,7 @@ class BaseBus(ABC):
         if event in self._subscribers:
             self._subscribers[event].remove_callback(callback)
 
-    def emit_sync(self, event: Union[Event, str], *args, **kwargs) -> None:
+    def emit_sync(self, event: EventType, *args, **kwargs) -> None:
         """
         以同步方式触发事件（底层还是异步执行）\n
         示例:
@@ -118,10 +118,10 @@ class BaseBus(ABC):
             return await coroutine(*args, **kwargs)
 
     @abstractmethod
-    async def before_emit(self, event: Union[Event, str], *args, **kwargs) -> tuple[bool, dict]:
+    async def before_emit(self, event: EventType, *args, **kwargs) -> tuple[bool, dict]:
         return False, {}
 
-    async def emit(self, event: Union[Event, str], *args, **kwargs) -> None:
+    async def emit(self, event: EventType, *args, **kwargs) -> None:
         """
         异步触发事件\n
         执行顺序:

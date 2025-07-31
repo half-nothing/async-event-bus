@@ -6,19 +6,19 @@ from typing import Any, Union
 import pytest
 from loguru import logger
 
-from async_event_bus import Event, EventBus
+from async_event_bus import EnumEvent, EventBus
 
 bus = EventBus()
 logger.remove()
 logger.add(sys.stdout, level="TRACE")
 
 
-class MessageEvent(Event):
+class MessageEvent(EnumEvent):
     MESSAGE_CREATE = auto()
 
 
 @bus.global_event_filter()
-async def global_filter(event: Union[Event, str], *args: list[Any], **kwargs: dict[str, Any]) -> bool:
+async def global_filter(event: Union[EnumEvent, str], *args: list[Any], **kwargs: dict[str, Any]) -> bool:
     logger.info(f"Global filter called, event: {event}")
     return False
 

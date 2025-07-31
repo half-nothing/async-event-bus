@@ -6,7 +6,7 @@ from enum import auto
 
 from loguru import logger
 
-from async_event_bus import Event, EventBus
+from async_event_bus import EnumEvent, EventBus
 
 # 创建事件总线实例
 # Create an event bus instance
@@ -20,14 +20,14 @@ logger.add(sys.stdout, level="TRACE")
 
 # 通过继承Event类创建自定义事件
 # Create custom events by inheriting the Event class
-class MessageEvent(Event):
+class MessageEvent(EnumEvent):
     MESSAGE_CREATE = auto()
 
 
 # 通过添加全局过滤器来过滤事件
 # Filter events by adding global filters
 @bus.global_event_filter()
-async def global_filter(event: Event, *args, **kwargs) -> bool:
+async def global_filter(event: EnumEvent, *args, **kwargs) -> bool:
     logger.info(f"Global filter called, event: {event}")
     return False
 

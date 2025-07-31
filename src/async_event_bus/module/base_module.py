@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Union
 
-from ..event import Event
+from ..event import EventType
 
 
 class BaseModule(ABC):
@@ -10,7 +9,7 @@ class BaseModule(ABC):
     """
 
     @abstractmethod
-    async def resolve(self, event: Union[Event, str], args, kwargs) -> bool:
+    async def resolve(self, event: EventType, args, kwargs) -> bool:
         raise NotImplementedError
 
     @abstractmethod

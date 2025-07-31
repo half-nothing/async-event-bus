@@ -8,7 +8,7 @@ from typing import Union
 
 from loguru import logger
 
-from async_event_bus import BaseBus, Event
+from async_event_bus import BaseBus, EnumEvent
 
 
 # 你可以选择继承EventBus这个类，这样基础功能、注入器和过滤器都是默认存在的
@@ -24,7 +24,7 @@ class CustomEventBus(BaseBus):
     # 还有一个返回值是返回要添加的属性值，用于注入器实现
     # This function is called before the event starts propagating, and can be terminated by returning True
     # There is also a return value that returns the attribute value to be added for the injector implementation
-    async def before_emit(self, event: Union[Event, str], *args, **kwargs) -> tuple[bool, dict]:
+    async def before_emit(self, event: Union[EnumEvent, str], *args, **kwargs) -> tuple[bool, dict]:
         if event == MessageEvent.MESSAGE_DELETE:
             logger.info(f"Reject delete message: {event}")
             return True, {}
@@ -43,7 +43,7 @@ logger.add(sys.stdout, level="TRACE")
 
 # 通过继承Event类创建自定义事件
 # Create custom events by inheriting the Event class
-class MessageEvent(Event):
+class MessageEvent(EnumEvent):
     MESSAGE_CREATE = auto()
     MESSAGE_DELETE = auto()
 

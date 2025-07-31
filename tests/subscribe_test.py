@@ -6,14 +6,14 @@ from typing import Any
 import pytest
 from loguru import logger
 
-from async_event_bus import Event, EventBus
+from async_event_bus import EnumEvent, EventBus
 
 bus = EventBus()
 logger.remove()
 logger.add(sys.stdout, level="TRACE")
 
 
-class MessageEvent(Event):
+class MessageEvent(EnumEvent):
     MESSAGE_CREATE = auto()
     MESSAGE_DELETE = auto()
 

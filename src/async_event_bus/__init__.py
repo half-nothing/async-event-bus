@@ -6,7 +6,7 @@ __version__ = "0.2.0"
 __author__ = "Half_nothing"
 
 __ALL__ = [
-    Event,
+    EnumEvent,
     EventCallback,
     SyncEventCallback,
     AsyncEventCallback,

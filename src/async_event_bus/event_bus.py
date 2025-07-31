@@ -1,6 +1,4 @@
-from typing import Union
-
-from .event import Event
+from .event import EventType
 from .module import BaseBus, BusFilter, BusInject
 
 
@@ -14,7 +12,7 @@ class EventBus(BaseBus, BusFilter, BusInject):
         BusFilter.__init__(self)
         BusInject.__init__(self)
 
-    async def before_emit(self, event: Union[Event, str], *args, **kwargs) -> tuple[bool, dict]:
+    async def before_emit(self, event: EventType, *args, **kwargs) -> tuple[bool, dict]:
         await BusInject.resolve(self, event, args, kwargs)
         return await BusFilter.resolve(self, event, args, kwargs), kwargs
 
