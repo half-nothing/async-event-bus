@@ -11,7 +11,7 @@ from .sync_event_callback import SyncEventCallback
 
 class EventCallbackContainer:
     """
-    存储回调函数的容器类
+    A container class that stores callback functions
     """
 
     def __init__(self):

@@ -7,7 +7,7 @@ from .sync_event_callback import SyncEventCallback
 
 class EventCallbackFactory:
     """
-    创建 EventCallback 实例的工厂
+    The factory where the EventCallback instance is created
     """
 
     @staticmethod

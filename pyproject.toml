@@ -1,6 +1,6 @@
 [project]
 name = "async-event-bus"
-version = "0.3.0"
+version = "0.4.0"
 description = "A simple python event bus for python3"
 authors = [
     { name = "Half_nothing", email = "Half_nothing@163.com" },
@@ -10,13 +10,14 @@ dependencies = [
 ]
 requires-python = ">=3.12"
 readme = "README.md"
-license = { text = "GPL-3.0-or-later" }
+license = { text = "MIT" }
 keywords = [
     "python",
     "event-bus"
 ]
 classifiers = [
-    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "License :: OSI Approved :: MIT License",
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Environment :: Console",

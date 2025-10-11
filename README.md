@@ -1,11 +1,11 @@
-# py-event-bus
+# async-event-bus
 
 A simple event bus for python3
 
-[![GitHub release](https://img.shields.io/github/v/release/half-nothing/async-event-bus)](https://www.github.com/half-nothing/async-event-bus/releases/latest)
-![GitHub commits since latest release](https://img.shields.io/github/commits-since/half-nothing/async-event-bus/latest/main)
-![GitHub top language](https://img.shields.io/github/languages/top/half-nothing/async-event-bus)
-![GPLv3](https://img.shields.io/badge/License-GPLv3-blue)
+---
+[![ReleaseCard]][Release]![ReleaseDataCard]  
+![LastCommitCard]![ProjectLanguageCard]![ProjectLicense]
+---
 
 ## Quick Start
 
@@ -51,3 +51,15 @@ if __name__ == "__main__":
 ```
 
 3. Check out the examples under the 'examples' folder for more help  
+
+[ReleaseCard]: https://img.shields.io/github/v/release/half-nothing/async-event-bus?style=for-the-badge&logo=github
+
+[ReleaseDataCard]: https://img.shields.io/github/release-date/half-nothing/async-event-bus?display_date=published_at&style=for-the-badge&logo=github
+
+[LastCommitCard]: https://img.shields.io/github/last-commit/half-nothing/async-event-bus?display_timestamp=committer&style=for-the-badge&logo=github
+
+[ProjectLanguageCard]: https://img.shields.io/github/languages/top/half-nothing/async-event-bus?style=for-the-badge&logo=github
+
+[ProjectLicense]: https://img.shields.io/badge/License-MIT-blue?style=for-the-badge&logo=github
+
+[Release]: https://www.github.com/half-nothing/async-event-bus/releases/latest

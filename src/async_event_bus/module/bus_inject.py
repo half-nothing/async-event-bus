@@ -10,7 +10,8 @@ InjectCallback: Type = Callable[..., Union[dict[str, Any], Awaitable[dict[str, A
 
 class BusInject(BaseModule):
     """
-    事件总线注入器模块, 负责对事件进行参数注入, 以实现一些特殊操作, 比如：用户鉴权
+    The event bus injector module is responsible for injecting parameters into events to achieve special operations,
+    such as user authentication
     """
 
     def __init__(self):

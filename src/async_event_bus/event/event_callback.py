@@ -4,6 +4,10 @@ T = TypeVar('T', bound=Callable)
 
 
 class EventCallback(Generic[T]):
+    """
+    A basic class that encapsulates a callback function
+    """
+
     def __init__(self, callback: T, weight: int = 1) -> None:
         self._callback = callback
         self._weight = weight

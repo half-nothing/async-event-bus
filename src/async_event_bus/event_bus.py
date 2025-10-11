@@ -4,7 +4,7 @@ from .module import BaseBus, BusFilter, BusInject
 
 class EventBus(BaseBus, BusFilter, BusInject):
     """
-    事件总线
+    Event bus
     """
 
     def __init__(self, max_concurrent_tasks: int = 10):

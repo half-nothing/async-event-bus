@@ -10,7 +10,8 @@ FilterCallback: Type = Callable[..., Union[bool, Awaitable[bool]]]
 
 class BusFilter(BaseModule):
     """
-    事件总线过滤器模块, 负责对事件进行过滤, 同时判断是否继续传播该事件
+    The event bus filter module is responsible for filtering the event
+    and determining whether to continue to propagate the event
     """
 
     def __init__(self):
@@ -49,26 +50,29 @@ class BusFilter(BaseModule):
 
     def global_event_filter(self, weight: int = 1) -> Callable[[FilterCallback], FilterCallback]:
         """
-        全局过滤器修饰器\n
-        使用修饰器来向事件总线注册一个全局事件过滤器函数，这个过滤器函数可以是异步函数，也可以是同步函数。\n
-        传递函数的时候可以同时传递权重，权重大的过滤器会被优先调用\n
-        过滤器返回值:\n
-        如果返回True，则代表此事件被截断，不再向下传播。\n
-        如果返回False，则此事件继续传播\n
-        示例::\n
+        Register to global filters by decorator\n
+        Use decorator to register a global event filter function to the event bus,
+        which can be asynchronous or synchronous.\n
+        When passing a function, you can pass the weight at the same time,
+        and the filter with the weight will be called first\n
+        The filter return value:
+            If it returns `True`, it means that this event is truncated and no longer propagates down.\n
+            If it returns `False`, this event continues to propagate\n
+        Example:
             @event_bus.on_global_event_filter()
             def message_logger(message, *_, **__):
                 print(message)
-            # 异步函数也可以
+            # Asynchronous functions also accepted
             @event_bus.on_global_event_filter()
             async def message_recoder(message, *_, **__):
                 await ...
-            # 可以同时传递权重
+            # Weights can be passed simultaneously
             @event_bus.on_global_event_filter(10)
             async def message_filter(message, *_, **__):
                 await ...
 
-        :param weight: 事件的选择权重
+        :param weight: The selection weight of the filter
+        :return: The decorator function
         """
 
         def decorator(func: FilterCallback):
@@ -79,57 +83,64 @@ class BusFilter(BaseModule):
 
     def add_global_filter(self, callback: FilterCallback, weight: int = 1) -> None:
         """
-        注册全局过滤器\n
-        用于注册全局过滤器的函数，也可以单独使用\n
-        示例::\n
+        Register for global filters\n
+        Functions used to register to global filters inside, or can be used separately\n
+        Please check **BusFilter.global_event_filter** for details\n
+        Example:
             def message_logger(message, *_, **__):
                 print(message)
+            event_bus.add_global_filter(message_logger)
+            # Asynchronous functions also accepted
             async def message_recoder(message, *_, **__):
                 await ...
+            event_bus.add_global_filter(message_recoder)
+            # Weights can be passed simultaneously
             async def message_filter(message, *_, **__):
                 await ...
-            event_bus.add_global_filter(message_logger)
-            event_bus.add_global_filter(message_recoder)
             event_bus.add_global_filter(message_filter, 10)
 
-        :param callback: 事件回调函数
-        :param weight: 事件的选择权重
+        :param callback: Event filter function
+        :param weight: The selection weight of the filter
         """
         self._global_filters.add_callback(callback, weight)
         logger.debug(f"Global filter {callback.__name__} has been added, weight={weight}")
 
     def remove_global_filter(self, callback: FilterCallback) -> None:
         """
-        移除全局过滤器\n
-        示例::\n
+        Remove the global filter\n
+        Example:
             def message_logger(message, *_, **__):
                 print(message)
             event_bus.remove_global_filter(message_logger)
 
-        :param callback: 事件回调函数
+        :param callback: Event filter function
         """
         self._global_filters.remove_callback(callback)
 
     def event_filter(self, event: EventType, weight: int = 1) -> Callable[[FilterCallback], FilterCallback]:
         """
-        事件过滤器修饰器\n
-        使用修饰器来向事件总线注册一个事件过滤器函数，这个过滤器函数可以是异步函数，也可以是同步函数。\n
-        事件类型可以是字符串，表示自定义类型，也可以写一个继承Event类的枚举类来管理事件。\n
-        示例::\n
+        Register to event filters by decorator\n
+        Use decorator to register an event filter function to the event bus,
+        which can be asynchronous or synchronous.\n
+        The event type can be a string, representing a custom type,
+        or you can write an enum class that inherits the EnumEvent class,
+        or write a class that inherits the AbstractEvent class for more customization. \n
+        Please check **BusFilter.global_event_filter** for filter returns\n
+        Example:
             @event_bus.event_filter('message_create')
             def message_logger(message, *_, **__):
                 print(message)
-            # 异步函数也可以
+            # Asynchronous functions also accepted
             @event_bus.event_filter('message_create')
             async def message_recoder(message, *_, **__):
                 await ...
-            # 可以同时传递权重
+            # Weights can be passed simultaneously
             @event_bus.event_filter('message_create', 10)
             async def message_filter(message, *_, **__):
                 await ...
 
-        :param event: 要订阅的事件
-        :param weight: 事件的选择权重
+        :param event: Event to filter to
+        :param weight: The selection weight of the filter
         """
 
         def decorator(func: FilterCallback):
@@ -140,22 +151,25 @@ class BusFilter(BaseModule):
 
     def add_filter(self, event: EventType, callback: FilterCallback, weight: int = 1) -> None:
         """
-        注册事件过滤器\n
-        用于注册事件过滤器的函数，也可以单独使用\n
-        示例::\n
+        Register for event filters\n
+        Functions used to register to event filters inside, or can be used separately\n
+        Please check **BusFilter.event_filter** for details\n
+        Example:
             def message_logger(message, *_, **__):
                 print(message)
+            event_bus.add_filter('message_create', message_logger)
+            @event_bus.event_filter('message_create')
             async def message_recoder(message, *_, **__):
                 await ...
+            event_bus.add_filter('message_create', message_recoder)
+            # Weights can be passed simultaneously
             async def message_filter(message, *_, **__):
                 await ...
-            event_bus.add_filter('message_create', message_logger)
-            event_bus.add_filter('message_create', message_recoder)
             event_bus.add_filter('message_create', message_filter, 10)
 
-        :param event: 要订阅的事件
-        :param callback: 事件回调函数
-        :param weight: 事件的选择权重
+        :param event: Event to filter to
+        :param callback: Event filter function
+        :param weight: The selection weight of the filter
         """
         if event not in self._filters:
             self._filters[event] = EventCallbackContainer()
@@ -164,16 +178,14 @@ class BusFilter(BaseModule):
 
     def remove_filter(self, event: EventType, callback: FilterCallback) -> None:
         """
-        移除事件过滤器
-
-        示例::
-
+        Remove the event filter\n
+        Example:
             def message_logger(message, *_, **__):
                 print(message)
             event_bus.remove_filter('message_create', message_logger)
 
-        :param event: 要订阅的事件
-        :param callback: 事件回调函数
+        :param event: Event to filter to
+        :param callback: Event filter function
         """
         if event in self._filters:
             self._filters[event].remove_callback(callback)

@@ -5,7 +5,7 @@ from ..event import EventType
 
 class BaseModule(ABC):
     """
-    EventBus 模块基类
+    Event module base class
     """
 
     @abstractmethod
