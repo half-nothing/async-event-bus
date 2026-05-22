@@ -88,7 +88,7 @@ class CoreModule(BaseModule[C, R]):
         if event in self._subscribers:
             self._subscribers[event].remove_callback(callback)
 
-    async def before_emit(self, ctx: C) -> bool:
+    async def before_emit(self, event: EventType, ctx: C) -> bool:
         """Continue the cooperative before_emit chain.
 
         Delegates to the next module in the MRO
@@ -96,12 +96,13 @@ class CoreModule(BaseModule[C, R]):
         or modify the context before handlers are called.
 
         Args:
-            ctx: The event context about to be dispatched.
+            event:  The event that is about to be emitted.
+            ctx:    The event context about to be dispatched.
 
         Returns:
             ``True`` if the event should be propagated, ``False`` otherwise.
         """
-        return await super().before_emit(ctx)
+        return await super().before_emit(event, ctx)
 
     async def emit(self, event: EventInstance, *args, **kwargs) -> None:
         """Emit an event asynchronously.
@@ -117,12 +118,13 @@ class CoreModule(BaseModule[C, R]):
         Args:
             event: The event to emit.
         """
-        ctx = self._context_class(event=event, args=list(args), kwargs=kwargs)
-        if not await self.before_emit(ctx):
-            return
+        ctx: C = self._context_class(event=event, args=list(args), kwargs=kwargs)
 
         if isinstance(event, AbstractEvent):
             event = type(event)
+
+        if not await self.before_emit(event, ctx):
+            return
 
         if event not in self._subscribers:
             return

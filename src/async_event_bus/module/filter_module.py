@@ -43,29 +43,30 @@ class FilterModule(BaseModule[C, bool]):
         self._filters.clear()
         self._global_filters.clear()
 
-    async def before_emit(self, ctx: C) -> bool:
+    async def before_emit(self, event: EventType, ctx: C) -> bool:
         """Run global filters first, then event‑specific filters.
 
         Short‑circuits on the first ``False``, so that later filters and subscribers are never called.
         Delegates to the next module in the MRO if all filters pass.
 
         Args:
-            ctx: The event context under evaluation.
+            event:  The event that is about to be emitted.
+            ctx:    The event context about to be dispatched.
 
         Returns:
             ``True`` if the event may proceed, ``False`` if propagation was stopped.
         """
         if not await self._apply_global_filter(ctx):
             return False
-        if not await self._apply_filter(ctx):
+        if not await self._apply_filter(event, ctx):
             return False
-        return await super().before_emit(ctx)
+        return await super().before_emit(event, ctx)
 
-    async def _apply_filter(self, ctx: C) -> bool:
+    async def _apply_filter(self, event: EventType, ctx: C) -> bool:
         """Execute event‑specific filters registered for *ctx.event*."""
-        if ctx.event not in self._filters:
+        if event not in self._filters:
             return True
-        return await self._execute_callback(self._filters[ctx.event], ctx, lambda x: x)
+        return await self._execute_callback(self._filters[event], ctx, lambda x: x)
 
     async def _apply_global_filter(self, ctx: C) -> bool:
         """Execute all global filters against *ctx*."""

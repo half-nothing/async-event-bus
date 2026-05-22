@@ -47,14 +47,15 @@ class InjectModule(BaseModule[C, None]):
         self._injects.clear()
         self._global_injects.clear()
 
-    async def before_emit(self, ctx: C) -> bool:
+    async def before_emit(self, event: EventType, ctx: C) -> bool:
         """Apply global injectors first, then event‑specific ones.
 
         All injectors run within a try/except block because a failed injector leaves the context in an untrustworthy state;
         returning ``False`` safely aborts the event rather than forwarding potentially invalid data to subscribers.
 
         Args:
-            ctx: The event context that will be mutated in‑place.
+            event:  The event that is about to be emitted.
+            ctx:    The event context that will be mutated in‑place.
 
         Returns:
             ``True`` if all injectors succeeded,
@@ -62,19 +63,19 @@ class InjectModule(BaseModule[C, None]):
         """
         try:
             await self._apply_global_injects(ctx)
-            await self._apply_event_injects(ctx)
+            await self._apply_event_injects(event, ctx)
         except Exception as e:
             # A failed injector means the context is incomplete — the event
             # must not proceed to handlers.
             logger.error(f"Inject failed: {e}")
             return False
-        return await super().before_emit(ctx)
+        return await super().before_emit(event, ctx)
 
-    async def _apply_event_injects(self, ctx: C) -> None:
+    async def _apply_event_injects(self, event: EventType, ctx: C) -> None:
         """Execute injectors registered for *ctx.event*."""
-        if ctx.event not in self._injects:
+        if event not in self._injects:
             return
-        await self._execute_callback(self._injects[ctx.event], ctx)
+        await self._execute_callback(self._injects[event], ctx)
 
     async def _apply_global_injects(self, ctx: C) -> None:
         """Execute all global injectors against *ctx*."""

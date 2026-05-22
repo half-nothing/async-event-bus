@@ -1,9 +1,9 @@
 from abc import ABC
 from asyncio import Semaphore, gather
-from typing import Callable, TypeVar, Generic, Awaitable
+from typing import Callable, TypeVar, Generic, Awaitable, Hashable
 
-from ..event import EventCallbackContainer, EventContext
 from .module_exceptions import MultipleError
+from ..event import EventCallbackContainer, EventContext, EventInstance,EventType
 
 C = TypeVar("C", bound=EventContext)
 R = TypeVar("R")
@@ -56,14 +56,15 @@ class BaseModule(ABC, Generic[C, R]):
         """
         self._raise_exception = value
 
-    async def before_emit(self, ctx: EventContext) -> bool:
+    async def before_emit(self, event: EventType, ctx: EventContext) -> bool:
         """Terminal node of the cooperative ``before_emit`` chain.
 
         Always returns ``True`` so that, if no other module interrupts,
         the event reaches the actual subscribers.
 
         Args:
-            ctx: The event context that is about to be dispatched.
+            event:  The event that is about to be emitted.
+            ctx:    The event context that is about to be dispatched.
 
         Returns:
             ``True`` to allow the event to propagate.
