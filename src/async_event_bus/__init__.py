@@ -9,6 +9,7 @@ __all__ = [
     "EnumEvent",
     "AbstractEvent",
     "EventType",
+    "EventInstance",
     "EventContext",
     "EventCallback",
     "SyncEventCallback",

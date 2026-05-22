@@ -3,7 +3,7 @@ from typing import Awaitable, Callable, TypeAlias, TypeVar
 from loguru import logger
 
 from .base_module import BaseModule
-from ..event import EventType, EventCallbackContainer, EventContext
+from ..event import AbstractEvent, EventType, EventCallbackContainer, EventContext
 
 C = TypeVar("C", bound=EventContext)
 Callback: TypeAlias = Callable[[C], bool | Awaitable[bool]]
@@ -35,7 +35,7 @@ class FilterModule(BaseModule[C, bool]):
         # execution paths independent,
         # so that global rules cannot be accidentally bypassed by event‑specific
         # registrations and vice‑versa.
-        self._filters: dict[str, EventCallbackContainer[C, bool]] = {}
+        self._filters: dict[EventType, EventCallbackContainer[C, bool]] = {}
         self._global_filters = EventCallbackContainer[C, bool]()
 
     def clear(self) -> None:
@@ -138,6 +138,11 @@ class FilterModule(BaseModule[C, bool]):
             callback:   A sync or async callable that accepts an event context and returns ``bool``.
             weight:     Execution priority.
         """
+        if isinstance(event, AbstractEvent):
+            raise TypeError(
+                f"Expected an event type, got an instance of {type(event).__name__}. "
+                f"Use the event class, not an instance."
+            )
         if event not in self._filters:
             self._filters[event] = EventCallbackContainer[C, bool]()
         self._filters[event].add_callback(callback, weight)

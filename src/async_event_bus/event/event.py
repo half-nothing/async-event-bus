@@ -2,6 +2,7 @@ from abc import ABC
 from dataclasses import dataclass, field
 from enum import Enum
 from time import time
+from typing import Generic, TypeVar, Hashable
 
 
 class EnumEvent(Enum):
@@ -14,19 +15,26 @@ class AbstractEvent(ABC):
     pass
 
 
-# EventType covers all supported event key forms
+# EventType covers all supported event key forms, including AbstractEvent instances
 EventType = EnumEvent | type[AbstractEvent] | str
+EventInstance = EnumEvent | AbstractEvent | str
+
+E = TypeVar("E", bound=EventInstance)
 
 
 @dataclass
-class EventContext:
+class EventContext(Generic[E]):
     """
     Carrier object passed to every callback, filter, and injector.
 
-    Subclass this to attach domain-specific fields (e.g. authenticated user,
-    request metadata). Pass the subclass as context_class to EventBus.
+    E is the event type, allowing callbacks to access ctx.event with the correct type:
+        async def handler(ctx: EventContext[MessageCreateEvent]) -> None:
+            print(ctx.event.message)  # typed as MessageCreateEvent
+
+    Subclass this to attach domain-specific fields (e.g. authenticated user, request metadata).
+    Pass the subclass as context_class to EventBus.
     """
-    event: EventType
+    event: E
     timestamp: float = field(default_factory=time)  # Unix timestamp set at emit time
     args: list = field(default_factory=list)
     kwargs: dict = field(default_factory=dict)

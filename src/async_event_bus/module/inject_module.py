@@ -3,7 +3,7 @@ from typing import Awaitable, Callable, TypeAlias, TypeVar
 from loguru import logger
 
 from .base_module import BaseModule
-from ..event import EventType, EventCallbackContainer, EventContext
+from ..event import AbstractEvent, EventType, EventCallbackContainer, EventContext
 
 C = TypeVar("C", bound=EventContext)
 Callback: TypeAlias = Callable[[C], None | Awaitable[None]]
@@ -39,7 +39,7 @@ class InjectModule(BaseModule[C, None]):
         # Separate containers keep global injectors isolated from per‑event ones,
         # so that mandatory setup (e.g. authentication) cannot be accidentally
         # skipped by an event‑specific registration.
-        self._injects: dict[str, EventCallbackContainer[C, None]] = {}
+        self._injects: dict[EventType, EventCallbackContainer[C, None]] = {}
         self._global_injects = EventCallbackContainer[C, None]()
 
     def clear(self) -> None:
@@ -149,6 +149,11 @@ class InjectModule(BaseModule[C, None]):
             callback:   A sync or async callable that accepts an ``EventContext`` and returns ``None``.
             weight:     Execution priority.
         """
+        if isinstance(event, AbstractEvent):
+            raise TypeError(
+                f"Expected an event type, got an instance of {type(event).__name__}. "
+                f"Use the event class, not an instance."
+            )
         if event not in self._injects:
             self._injects[event] = EventCallbackContainer[C, None]()
         self._injects[event].add_callback(callback, weight)

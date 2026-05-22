@@ -11,21 +11,69 @@ class EventBus(CoreModule[C, R], InjectModule[C], FilterModule[C]):
     """
     Full-featured event bus combining subscription, injection, and filtering.
 
-    Example:
-        bus = EventBus()
+    --- Basic usage ---
 
-        @bus.on(MyEvent.FOO)
-        async def handler(ctx: EventContext) -> None: ...
+    from async_event_bus import EventBus, EnumEvent, EventContext
+    from enum import auto
 
-        @bus.event_inject(MyEvent.FOO)
-        async def injector(ctx: EventContext) -> None:
-            ctx.kwargs["user"] = await get_user()
+    class AppEvent(EnumEvent):
+        MESSAGE_CREATE = auto()
 
-        @bus.event_filter(MyEvent.FOO)
-        async def guard(ctx: EventContext) -> bool:
-            return ctx.kwargs.get("user") is not None
+    bus = EventBus()
 
-        await bus.emit(MyEvent.FOO, payload)
+    @bus.on(AppEvent.MESSAGE_CREATE)
+    async def on_message(ctx: EventContext) -> None:
+        print(ctx.args)
+
+    await bus.emit(AppEvent.MESSAGE_CREATE, "hello")
+    bus.emit_sync(AppEvent.MESSAGE_CREATE, "hello")   # blocking variant
+
+    --- Custom EventContext ---
+
+    from dataclasses import dataclass, field
+
+    @dataclass
+    class AppContext(EventContext):
+        user: str = ""
+
+    bus = EventBus(context_class=AppContext)
+
+    @bus.global_event_inject()
+    async def inject_user(ctx: AppContext) -> None:
+        ctx.user = await fetch_user(ctx.kwargs.get("user_id"))
+
+    @bus.on(AppEvent.MESSAGE_CREATE)
+    async def on_message(ctx: AppContext) -> None:
+        print(f"{ctx.user}: {ctx.args}")
+
+    --- Filtering ---
+
+    @bus.global_event_filter()
+    async def auth_guard(ctx: AppContext) -> bool:
+        return ctx.user is not None   # False stops propagation
+
+    @bus.event_filter(AppEvent.MESSAGE_CREATE)
+    def content_filter(ctx: EventContext) -> bool:
+        return "forbidden" not in ctx.args[0]
+
+    --- Weight-based ordering ---
+
+    # Higher weight = called first. Sync callbacks always precede async ones.
+    @bus.on(AppEvent.MESSAGE_CREATE, weight=10)
+    def high_priority(ctx: EventContext) -> None: ...
+
+    @bus.on(AppEvent.MESSAGE_CREATE, weight=1)
+    def low_priority(ctx: EventContext) -> None: ...
+
+    --- Exception handling ---
+
+    bus = EventBus(raise_exception=True)   # first exception aborts immediately
+    # default (False): all callbacks run, exceptions collected into MultipleError
+
+    Args:
+        max_concurrent_tasks:   Semaphore limit for concurrent async callbacks (default 10)
+        raise_exception:        If True, first exception aborts execution immediately (default False)
+        context_class:          EventContext subclass to instantiate on each emit (default EventContext)
     """
 
     def __init__(

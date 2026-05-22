@@ -106,11 +106,6 @@ class EventCallback(Generic[C, R]):
         Returns:
             An ``AsyncEventCallback`` if *callback* is a coroutine function,
             otherwise a ``SyncEventCallback``.
-
-        Example:
-            >>> cb = EventCallback.create(my_handler, weight=5)
-            >>> type(cb).__name__
-            'SyncEventCallback' or 'AsyncEventCallback'
         """
         if iscoroutinefunction(callback):
             return AsyncEventCallback(callback, weight)
@@ -229,12 +224,6 @@ class EventCallbackContainer(Generic[C, R]):
 
         Raises:
             TypeError: If *callback* is neither a recognized ``EventCallback`` subclass nor a callable.
-
-        Example:
-            >>> container = EventCallbackContainer()
-            >>> def handler(ctx): ...
-            >>> container.add_callback(handler, weight=5)
-            >>> container.add_callback(AsyncEventCallback(async_handler, 10))
         """
         if not isinstance(callback, EventCallback) and callable(callback):
             callback = EventCallback.create(callback, weight)

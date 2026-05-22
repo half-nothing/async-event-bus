@@ -4,7 +4,8 @@ from typing import Awaitable, Callable, TypeAlias, TypeVar
 from loguru import logger
 
 from .base_module import BaseModule
-from ..event import EventType, EventCallbackContainer, EventContext
+from .. import AbstractEvent
+from ..event import EventType, EventInstance, EventCallbackContainer, EventContext
 
 C = TypeVar("C", bound=EventContext)
 R = TypeVar("R")
@@ -33,7 +34,7 @@ class CoreModule(BaseModule[C, R]):
         """
         super().__init__(max_concurrent_tasks, raise_exception, context_class)
         # Lazy dict avoids pre‑allocating containers for events that never get subscribers.
-        self._subscribers: dict[str, EventCallbackContainer[C, R]] = {}
+        self._subscribers: dict[EventType, EventCallbackContainer[C, R]] = {}
 
     def on(
         self, event: EventType, *, weight: int = 1
@@ -87,7 +88,48 @@ class CoreModule(BaseModule[C, R]):
         if event in self._subscribers:
             self._subscribers[event].remove_callback(callback)
 
-    def emit_sync(self, event: EventType, *args, **kwargs) -> None:
+    async def before_emit(self, ctx: C) -> bool:
+        """Continue the cooperative before_emit chain.
+
+        Delegates to the next module in the MRO
+        so that filters and injectors have a chance to inspect
+        or modify the context before handlers are called.
+
+        Args:
+            ctx: The event context about to be dispatched.
+
+        Returns:
+            ``True`` if the event should be propagated, ``False`` otherwise.
+        """
+        return await super().before_emit(ctx)
+
+    async def emit(self, event: EventInstance, *args, **kwargs) -> None:
+        """Emit an event asynchronously.
+
+        Constructs a context, runs the ``before_emit``, and then executes all registered callbacks.
+
+        Execution order among callbacks:
+
+        - Synchronous callbacks run first, in descending weight order.
+        - Asynchronous callbacks are then scheduled concurrently via ``asyncio.gather``;
+          their relative weights are irrelevant at that point.
+
+        Args:
+            event: The event to emit.
+        """
+        ctx = self._context_class(event=event, args=list(args), kwargs=kwargs)
+        if not await self.before_emit(ctx):
+            return
+
+        if isinstance(event, AbstractEvent):
+            event = type(event)
+
+        if event not in self._subscribers:
+            return
+
+        await self._execute_callback(self._subscribers[event], ctx)
+
+    def emit_sync(self, event: EventInstance, *args, **kwargs) -> None:
         """Blocking convenience wrapper around `emit`.
 
         Handles three event‑loop scenarios so that synchronous code can safely trigger the asynchronous emit path:
@@ -120,44 +162,6 @@ class CoreModule(BaseModule[C, R]):
             finally:
                 loop.close()
                 set_event_loop(None)
-
-    async def before_emit(self, ctx: C) -> bool:
-        """Continue the cooperative before_emit chain.
-
-        Delegates to the next module in the MRO
-        so that filters and injectors have a chance to inspect
-        or modify the context before handlers are called.
-
-        Args:
-            ctx: The event context about to be dispatched.
-
-        Returns:
-            ``True`` if the event should be propagated, ``False`` otherwise.
-        """
-        return await super().before_emit(ctx)
-
-    async def emit(self, event: EventType, *args, **kwargs) -> None:
-        """Emit an event asynchronously.
-
-        Constructs a context, runs the ``before_emit``, and then executes all registered callbacks.
-
-        Execution order among callbacks:
-
-        - Synchronous callbacks run first, in descending weight order.
-        - Asynchronous callbacks are then scheduled concurrently via ``asyncio.gather``;
-          their relative weights are irrelevant at that point.
-
-        Args:
-            event: The event to emit.
-        """
-        ctx = self._context_class(event=event, args=list(args), kwargs=kwargs)
-        if not await self.before_emit(ctx):
-            return
-
-        if event not in self._subscribers:
-            return
-
-        await self._execute_callback(self._subscribers[event], ctx)
 
     def clear(self) -> None:
         """Remove all subscriptions."""
