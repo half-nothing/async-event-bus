@@ -1,12 +1,11 @@
 import asyncio
 import sys
 from enum import auto
-from typing import Any
 
 import pytest
 from loguru import logger
 
-from async_event_bus import EnumEvent, EventBus
+from async_event_bus import EnumEvent, EventBus, EventContext
 
 bus = EventBus()
 logger.remove()
@@ -19,7 +18,8 @@ class MessageEvent(EnumEvent):
 
 
 @bus.on(MessageEvent.MESSAGE_CREATE)
-async def async_message_create(message: str, *args, **kwargs) -> None:
+async def async_message_create(ctx: EventContext) -> None:
+    message = ctx.args[0]
     assert message in ("This is a test message", "This is also a test message")
     logger.info(f"Async message creating: {message}")
     await asyncio.sleep(1)
@@ -27,7 +27,8 @@ async def async_message_create(message: str, *args, **kwargs) -> None:
 
 
 @bus.on(MessageEvent.MESSAGE_DELETE)
-async def async_message_delete(message: str, *args, **kwargs) -> None:
+async def async_message_delete(ctx: EventContext) -> None:
+    message = ctx.args[0]
     assert message in ("This is a test delete message", "This is also a test delete message")
     logger.info(f"Async message deleting: {message}")
     await asyncio.sleep(0.5)
@@ -47,13 +48,15 @@ async def test_async_subscribe():
 
 
 @bus.on(MessageEvent.MESSAGE_CREATE)
-def message_create(message: str, *args, **kwargs) -> None:
+def message_create(ctx: EventContext) -> None:
+    message = ctx.args[0]
     assert message in ("This is a test message", "This is also a test message")
     logger.info(f"Sync message created: {message}")
 
 
 @bus.on(MessageEvent.MESSAGE_DELETE)
-def message_delete(message: str, *args, **kwargs) -> None:
+def message_delete(ctx: EventContext) -> None:
+    message = ctx.args[0]
     assert message in ("This is a test delete message", "This is also a test delete message")
     logger.info(f"Message deleted: {message}")
 

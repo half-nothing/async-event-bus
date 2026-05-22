@@ -36,7 +36,7 @@ class CustomEventBus(BaseBus, CustomModule):
         super().__init__()
         self._module = CustomModule()
 
-    async def before_emit(self, event: Union[EnumEvent, str], *args, **kwargs) -> tuple[bool, dict]:
+    async def before_emit(self, event, ctx: Union[EnumEvent, str]) -> tuple[bool, dict]:
         # 这种也可以，但是这样外部调用模块接口会比较麻烦
         # This is also possible, but it will be more troublesome to call the module interface externally
         # if await self._module.resolve(event, args, kwargs):

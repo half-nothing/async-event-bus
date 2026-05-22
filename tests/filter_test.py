@@ -1,12 +1,11 @@
 import asyncio
 import sys
 from enum import auto
-from typing import Any
 
 import pytest
 from loguru import logger
 
-from async_event_bus import EnumEvent, EventBus
+from async_event_bus import EnumEvent, EventBus, EventContext
 
 bus = EventBus()
 logger.remove()
@@ -18,22 +17,24 @@ class MessageEvent(EnumEvent):
 
 
 @bus.global_event_filter()
-async def global_filter(event: EnumEvent | str, *args, **kwargs) -> bool:
-    logger.info(f"Global filter called, event: {event}")
-    return False
+async def global_filter(ctx: EventContext) -> bool:
+    logger.info(f"Global filter called, event: {ctx.event}")
+    return True
 
 
 @bus.event_filter(MessageEvent.MESSAGE_CREATE)
-async def message_filter(message: str, *args, **kwargs) -> bool:
+async def message_filter(ctx: EventContext) -> bool:
+    message = ctx.args[0]
     logger.info(f"Message filter called")
     if message.find("forbidden") != -1:
         logger.info(f"Forbidden message found: {message}")
-        return True
-    return False
+        return False
+    return True
 
 
 @bus.on(MessageEvent.MESSAGE_CREATE)
-async def async_message_create(message: str, *args, **kwargs) -> None:
+async def async_message_create(ctx: EventContext) -> None:
+    message = ctx.args[0]
     assert message.find("forbidden") == -1
     logger.info(f"Async message creating: {message}")
 

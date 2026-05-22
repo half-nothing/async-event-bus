@@ -2,12 +2,11 @@ import asyncio
 import sys
 from datetime import datetime
 from enum import auto
-from typing import Any
 
 import pytest
 from loguru import logger
 
-from async_event_bus import EnumEvent, EventBus
+from async_event_bus import EnumEvent, EventBus, EventContext
 
 bus = EventBus()
 logger.remove()
@@ -19,28 +18,25 @@ class MessageEvent(EnumEvent):
 
 
 @bus.global_event_inject()
-async def global_inject(*args, **kwargs) -> dict[str, Any]:
+async def global_inject(ctx: EventContext) -> None:
     logger.info(f"Global inject called")
-    return {
-        "time": datetime.now().timestamp()
-    }
+    ctx.kwargs["time"] = datetime.now().timestamp()
 
 
 @bus.event_inject(MessageEvent.MESSAGE_CREATE)
-async def message_inject(message: str, *args, **kwargs) -> dict[str, Any]:
+async def message_inject(ctx: EventContext) -> None:
     logger.info(f"Message inject called")
-    return {
-        "message_len": len(message)
-    }
+    ctx.kwargs["message_len"] = len(ctx.args[0])
 
 
 @bus.on(MessageEvent.MESSAGE_CREATE)
-async def async_message_create(message: str, *args, **kwargs: Any) -> None:
+async def async_message_create(ctx: EventContext) -> None:
+    message = ctx.args[0]
     logger.info(f"Async message creating: {message}")
-    logger.info(f"Message create time: {kwargs.get('time')}")
-    logger.info(f"Message len: {kwargs.get('message_len')}")
-    assert kwargs.get('time') is not None
-    assert kwargs.get('message_len') == 22
+    logger.info(f"Message create time: {ctx.kwargs.get('time')}")
+    logger.info(f"Message len: {ctx.kwargs.get('message_len')}")
+    assert ctx.kwargs.get('time') is not None
+    assert ctx.kwargs.get('message_len') == 22
 
 
 @pytest.mark.asyncio
