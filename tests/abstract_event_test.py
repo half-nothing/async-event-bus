@@ -24,7 +24,7 @@ class MessageCreateEvent(AbstractEvent):
 
 
 @bus.on(MessageCreateEvent)
-async def async_message_create(event: MessageCreateEvent, *args: list[Any], **kwargs: dict[str, Any]) -> None:
+async def async_message_create(event: MessageCreateEvent, *args, **kwargs) -> None:
     assert event.message in ("This is a test message", "This is also a test message")
     logger.info(f"Async message creating: {event.message}, id: {event.message_id}")
     await asyncio.sleep(1)
@@ -32,7 +32,7 @@ async def async_message_create(event: MessageCreateEvent, *args: list[Any], **kw
 
 
 @bus.on(MessageDeleteEvent)
-async def async_message_delete(event: MessageDeleteEvent, *args: list[Any], **kwargs: dict[str, Any]) -> None:
+async def async_message_delete(event: MessageDeleteEvent, *args, **kwargs) -> None:
     logger.info(f"Async message deleting: {event.message_id}")
     await asyncio.sleep(0.5)
     logger.info(f"Async message deleted: {event.message_id}")

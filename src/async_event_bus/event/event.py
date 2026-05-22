@@ -1,6 +1,6 @@
 from abc import ABC
 from enum import Enum
-from typing import Type, Union
+from typing import TypeAlias
 
 
 # Enum event
@@ -13,4 +13,4 @@ class AbstractEvent(ABC):
     pass
 
 
-EventType: Type = Union[EnumEvent, Type[AbstractEvent], str]
+EventType: TypeAlias = EnumEvent | type[AbstractEvent] | str

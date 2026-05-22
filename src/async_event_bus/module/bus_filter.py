@@ -1,11 +1,11 @@
-from typing import Awaitable, Callable, Type, Union
+from typing import Awaitable, Callable, TypeAlias
 
 from loguru import logger
 
 from .base_module import BaseModule
 from ..event import EventType, EventCallbackContainer
 
-FilterCallback: Type = Callable[..., Union[bool, Awaitable[bool]]]
+FilterCallback: TypeAlias = Callable[..., bool | Awaitable[bool]]
 
 
 class BusFilter(BaseModule):

@@ -8,7 +8,7 @@ authors = [
 dependencies = [
     "loguru>=0.7.3"
 ]
-requires-python = ">=3.12"
+requires-python = "<4.0,>=3.12"
 readme = "README.md"
 license = { text = "MIT" }
 keywords = [
@@ -25,18 +25,22 @@ classifiers = [
     "Natural Language :: Chinese (Simplified)"
 ]
 
-[project.optional-dependencies]
-dev = [
-    "setuptools>=80.9.0",
-    "pytest>=8.4.1",
-    "pytest-html>=4.1.1",
-    "pytest-asyncio>=1.1.0",
-]
-
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
-
 [tool.pdm]
 distribution = true
+
+[dependency-groups]
+type = [
+    "mypy>=2.1.0",
+]
+build = [
+    "setuptools>=80.9.0",
+]
+test = [
+    "pytest>=8.4.1",
+    "pytest-html>=4.1.1",
+    "pytest-asyncio>=1.1.0",
+]

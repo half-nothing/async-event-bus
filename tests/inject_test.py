@@ -19,7 +19,7 @@ class MessageEvent(EnumEvent):
 
 
 @bus.global_event_inject()
-async def global_inject(*args: list[Any], **kwargs: dict[str, Any]) -> dict[str, Any]:
+async def global_inject(*args, **kwargs) -> dict[str, Any]:
     logger.info(f"Global inject called")
     return {
         "time": datetime.now().timestamp()
@@ -27,7 +27,7 @@ async def global_inject(*args: list[Any], **kwargs: dict[str, Any]) -> dict[str,
 
 
 @bus.event_inject(MessageEvent.MESSAGE_CREATE)
-async def message_inject(message: str, *args: list[Any], **kwargs: dict[str, Any]) -> dict[str, Any]:
+async def message_inject(message: str, *args, **kwargs) -> dict[str, Any]:
     logger.info(f"Message inject called")
     return {
         "message_len": len(message)
@@ -35,7 +35,7 @@ async def message_inject(message: str, *args: list[Any], **kwargs: dict[str, Any
 
 
 @bus.on(MessageEvent.MESSAGE_CREATE)
-async def async_message_create(message: str, *args: list[Any], **kwargs: dict[str, Any]) -> None:
+async def async_message_create(message: str, *args, **kwargs: Any) -> None:
     logger.info(f"Async message creating: {message}")
     logger.info(f"Message create time: {kwargs.get('time')}")
     logger.info(f"Message len: {kwargs.get('message_len')}")

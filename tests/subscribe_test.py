@@ -19,7 +19,7 @@ class MessageEvent(EnumEvent):
 
 
 @bus.on(MessageEvent.MESSAGE_CREATE)
-async def async_message_create(message: str, *args: list[Any], **kwargs: dict[str, Any]) -> None:
+async def async_message_create(message: str, *args, **kwargs) -> None:
     assert message in ("This is a test message", "This is also a test message")
     logger.info(f"Async message creating: {message}")
     await asyncio.sleep(1)
@@ -27,7 +27,7 @@ async def async_message_create(message: str, *args: list[Any], **kwargs: dict[st
 
 
 @bus.on(MessageEvent.MESSAGE_DELETE)
-async def async_message_delete(message: str, *args: list[Any], **kwargs: dict[str, Any]) -> None:
+async def async_message_delete(message: str, *args, **kwargs) -> None:
     assert message in ("This is a test delete message", "This is also a test delete message")
     logger.info(f"Async message deleting: {message}")
     await asyncio.sleep(0.5)
@@ -47,13 +47,13 @@ async def test_async_subscribe():
 
 
 @bus.on(MessageEvent.MESSAGE_CREATE)
-def message_create(message: str, *args: list[Any], **kwargs: dict[str, Any]) -> None:
+def message_create(message: str, *args, **kwargs) -> None:
     assert message in ("This is a test message", "This is also a test message")
     logger.info(f"Sync message created: {message}")
 
 
 @bus.on(MessageEvent.MESSAGE_DELETE)
-def message_delete(message: str, *args: list[Any], **kwargs: dict[str, Any]) -> None:
+def message_delete(message: str, *args, **kwargs) -> None:
     assert message in ("This is a test delete message", "This is also a test delete message")
     logger.info(f"Message deleted: {message}")
 

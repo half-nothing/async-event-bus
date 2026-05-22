@@ -1,3 +1,4 @@
+from inspect import iscoroutinefunction
 from typing import Any, Callable, Generic, TypeVar
 
 T = TypeVar('T', bound=Callable)
@@ -40,3 +41,36 @@ class EventCallback(Generic[T]):
 
     def __repr__(self) -> str:
         return str(self)
+
+    @staticmethod
+    def create(callback: T, weight: int = 1) -> EventCallback:
+        if iscoroutinefunction(callback):
+            return AsyncEventCallback(callback, weight)
+        else:
+            return SyncEventCallback(callback, weight)
+
+
+class AsyncEventCallback(EventCallback):
+    """
+    A class that encapsulates an async callback function
+    """
+
+    def __init__(self, callback: T, weight: int = 1):
+        super().__init__(callback, weight)
+        self._async = True
+
+    async def __call__(self, *args, **kwargs) -> Any:
+        return await self._callback(*args, **kwargs)
+
+
+class SyncEventCallback(EventCallback):
+    """
+    A class that encapsulates a sync callback function
+    """
+
+    def __init__(self, callback: T, weight: int = 1):
+        super().__init__(callback, weight)
+        self._async = False
+
+    def __call__(self, *args, **kwargs) -> Any:
+        return self._callback(*args, **kwargs)

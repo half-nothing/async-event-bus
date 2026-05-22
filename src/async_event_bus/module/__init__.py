@@ -4,10 +4,10 @@ from .bus_filter import BusFilter
 from .bus_inject import BusInject
 from .module_exceptions import *
 
-__ALL__ = [
-    BaseBus,
-    BaseModule,
-    BusFilter,
-    BusInject,
-    MultipleError
+__all__ = [
+    "BaseBus",
+    "BaseModule",
+    "BusFilter",
+    "BusInject",
+    "MultipleError",
 ]

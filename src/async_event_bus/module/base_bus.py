@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
 from asyncio import Semaphore, gather, get_event_loop, new_event_loop, run_coroutine_threadsafe, set_event_loop
-from typing import Any, Awaitable, Callable, Type, Union
+from typing import Any, Awaitable, Callable, TypeAlias
 
 from loguru import logger
 
 from .module_exceptions import MultipleError
 from ..event import EventType, EventCallbackContainer
 
-SubScriberCallback: Type = Callable[..., Union[Any, Awaitable[Any]]]
+SubScriberCallback: TypeAlias = Callable[..., Any | Awaitable[Any]]
 
 
 class BaseBus(ABC):
@@ -101,6 +101,10 @@ class BaseBus(ABC):
                     loop
                 )
                 future.result()
+            else:
+                loop.run_until_complete(
+                    self.emit(event, *args, **kwargs)
+                )
         except RuntimeError:
             loop = new_event_loop()
             set_event_loop(loop)
@@ -160,8 +164,7 @@ class BaseBus(ABC):
                 await gather(*async_handlers, return_exceptions=False)
             else:
                 results = await gather(*async_handlers, return_exceptions=True)
-                if not (len(results) == 1 and results[0] is None):
-                    exceptions.extend(results)
+                exceptions.extend(r for r in results if isinstance(r, Exception))
 
             if (exception_size := len(exceptions)) != 0:
                 if exception_size == 1:

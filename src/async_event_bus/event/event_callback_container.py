@@ -1,12 +1,9 @@
-from asyncio import iscoroutinefunction
-from typing import Callable, Union
+from inspect import iscoroutinefunction
+from typing import Callable
 
 from loguru import logger
 
-from .async_event_callback import AsyncEventCallback
-from .event_callback import EventCallback
-from .event_callback_factory import EventCallbackFactory
-from .sync_event_callback import SyncEventCallback
+from .event_callback import EventCallback, AsyncEventCallback, SyncEventCallback
 
 
 class EventCallbackContainer:
@@ -34,9 +31,9 @@ class EventCallbackContainer:
         else:
             logger.trace(f"Callback already exists: {callback}")
 
-    def add_callback(self, callback: Union[EventCallback, Callable], weight: int = 1) -> None:
-        if not isinstance(callback, EventCallback):
-            callback = EventCallbackFactory.create(callback, weight)
+    def add_callback(self, callback: EventCallback | Callable, weight: int = 1) -> None:
+        if not isinstance(callback, EventCallback) and callable(callback):
+            callback = EventCallback.create(callback, weight)
         if isinstance(callback, AsyncEventCallback):
             self.add_async_callback(callback)
         elif isinstance(callback, SyncEventCallback):
@@ -44,18 +41,18 @@ class EventCallbackContainer:
         else:
             raise TypeError(f'Callback type {type(callback)} not supported')
 
-    def remove_sync_callback(self, callback: Union[SyncEventCallback, Callable]) -> None:
+    def remove_sync_callback(self, callback: SyncEventCallback | Callable) -> None:
         if callback in self._sync_callback:
             logger.trace(f"Removing sync callback: {callback}")
             self._sync_callback.remove(callback)
 
-    def remove_async_callback(self, callback: Union[AsyncEventCallback, Callable]) -> None:
+    def remove_async_callback(self, callback: AsyncEventCallback | Callable) -> None:
         if callback in self._async_callback:
             logger.trace(f"Removing async callback: {callback}")
             self._async_callback.remove(callback)
 
-    def remove_callback(self, callback: Union[EventCallback, Callable]) -> None:
-        if not isinstance(callback, EventCallback):
+    def remove_callback(self, callback: EventCallback | Callable) -> None:
+        if not isinstance(callback, EventCallback) and callable(callback):
             if iscoroutinefunction(callback):
                 self.remove_async_callback(callback)
             else:

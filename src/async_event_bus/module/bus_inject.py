@@ -1,11 +1,11 @@
-from typing import Any, Awaitable, Callable, Type, Union
+from typing import Any, Awaitable, Callable, TypeAlias
 
 from loguru import logger
 
 from .base_module import BaseModule
 from ..event import EventType, EventCallbackContainer
 
-InjectCallback: Type = Callable[..., Union[dict[str, Any], Awaitable[dict[str, Any]]]]
+InjectCallback: TypeAlias = Callable[..., dict[str, Any] | Awaitable[dict[str, Any]]]
 
 
 class BusInject(BaseModule):
