@@ -1,13 +1,13 @@
-from .base_bus import BaseBus
 from .base_module import BaseModule
-from .bus_filter import BusFilter
-from .bus_inject import BusInject
+from .core_module import CoreModule
+from .filter_module import FilterModule
+from .inject_module import InjectModule
 from .module_exceptions import *
 
 __all__ = [
-    "BaseBus",
+    "CoreModule",
     "BaseModule",
-    "BusFilter",
-    "BusInject",
+    "FilterModule",
+    "InjectModule",
     "MultipleError",
 ]

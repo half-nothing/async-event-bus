@@ -1,11 +1,11 @@
-from .event import EnumEvent, AbstractEvent, EventType
-from .event_callback import EventCallback, AsyncEventCallback, SyncEventCallback
-from .event_callback_container import EventCallbackContainer
+from .event import EnumEvent, AbstractEvent, EventType, EventContext
+from .event_callback import EventCallback, AsyncEventCallback, SyncEventCallback, EventCallbackContainer
 
 __all__ = [
     "EnumEvent",
     "AbstractEvent",
     "EventType",
+    "EventContext",
     "EventCallback",
     "SyncEventCallback",
     "AsyncEventCallback",
