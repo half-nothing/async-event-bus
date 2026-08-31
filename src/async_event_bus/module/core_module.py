@@ -3,7 +3,8 @@ from typing import Awaitable, Callable, TypeAlias, TypeVar, cast
 
 from loguru import logger
 
-from .base_module import BaseModule
+from .base_module import BaseModule, EmitResult
+from .module_exceptions import ExceptionStrategy
 from ..event import AbstractEvent, EventType, EventInstance, EventCallbackContainer, EventContext
 
 C = TypeVar("C", bound=EventContext)
@@ -17,21 +18,23 @@ class CoreModule(BaseModule[C, R]):
     def __init__(
             self,
             max_concurrent_tasks: int = 16,
-            raise_exception: bool = False,
-            context_class: type[C] = EventContext,
+            exception_strategy: ExceptionStrategy = ExceptionStrategy.COLLECT,
+            context_class: type[C] = cast(type[C], EventContext),
     ) -> None:
         """Initialize the core module.
 
         Args:
             max_concurrent_tasks:   Semaphore limit for concurrent async callbacks.
                                     Higher values increase throughput but may overwhelm the event loop or external resources.
-            raise_exception:        If ``True``, the first exception inside a callback is re‑raised immediately.
-                                    If ``False``, exceptions are collected and raised together
-                                    as a ``MultipleError`` after all callbacks have run.
+            exception_strategy:     How callback exceptions are handled. One of
+                                    ``ExceptionStrategy.IGNORE`` (log and continue),
+                                    ``RAISE`` (fail fast), ``COLLECT`` (raise a single
+                                    ``MultipleError`` after execution, default) or
+                                    ``RETURN`` (returned by ``emit`` instead of raised).
             context_class:          Subclass of ``EventContext`` used to construct the context object on every emit.
                                     Allows applications to pass custom context fields.
         """
-        super().__init__(max_concurrent_tasks, raise_exception, context_class)
+        super().__init__(max_concurrent_tasks, exception_strategy, context_class)
         # Lazy dict avoids pre‑allocating containers for events that never get subscribers.
         self._subscribers: dict[EventType, EventCallbackContainer[C, R]] = {}
 
@@ -110,7 +113,7 @@ class CoreModule(BaseModule[C, R]):
             expand_args: bool = False,
             expand_kwargs: bool = False,
             **kwargs,
-    ) -> None:
+    ) -> EmitResult[R] | None:
         """Emit an event asynchronously.
 
         Constructs a context, runs the ``before_emit``, and then executes all registered callbacks.
@@ -127,6 +130,12 @@ class CoreModule(BaseModule[C, R]):
                             instead of passing the ``EventContext`` object.
             expand_kwargs:  If ``True``, unpack ``ctx.kwargs`` as keyword arguments to each callback
                             instead of passing the ``EventContext`` object.
+
+        Returns:
+            With ``ExceptionStrategy.RETURN``, an ``EmitResult`` holding the
+            successful outcomes in ``.results`` and the exceptions in
+            ``.exceptions``, or ``None`` when the event was filtered out or had
+            no subscribers. Otherwise ``None``.
         """
         ctx: C = self._context_class(event=event, args=list(args), kwargs=kwargs)
         # Store the unpacking options on the context so that the whole
@@ -143,14 +152,17 @@ class CoreModule(BaseModule[C, R]):
             event_key = cast(EventType, event)
 
         if not await self.before_emit(event_key, ctx):
-            return
+            return None
 
         if event_key not in self._subscribers:
-            return
+            return None
 
-        await self._execute_callback(
+        result = await self._execute_callback(
             self._subscribers[event_key], ctx, expand_args=expand_args, expand_kwargs=expand_kwargs
         )
+        if self._exception_strategy is ExceptionStrategy.RETURN:
+            return result
+        return None
 
     def emit_sync(
             self,
@@ -159,7 +171,7 @@ class CoreModule(BaseModule[C, R]):
             expand_args: bool = False,
             expand_kwargs: bool = False,
             **kwargs,
-    ) -> None:
+    ) -> EmitResult[R] | None:
         """Blocking convenience wrapper around `emit`.
 
         Handles three event‑loop scenarios so that synchronous code can safely trigger the asynchronous emit path:
@@ -172,20 +184,24 @@ class CoreModule(BaseModule[C, R]):
             event:          The event to emit.
             expand_args:    Forwarded to :meth:`emit`.
             expand_kwargs:  Forwarded to :meth:`emit`.
+
+        Returns:
+            The return value of :meth:`emit` (only meaningful with
+            ``ExceptionStrategy.RETURN``).
         """
         coro = self.emit(event, *args, expand_args=expand_args, expand_kwargs=expand_kwargs, **kwargs)
         try:
             loop = get_event_loop()
             if loop and loop.is_running():
                 future = run_coroutine_threadsafe(coro, loop)
-                future.result()
+                return future.result()
             else:
-                loop.run_until_complete(coro)
+                return loop.run_until_complete(coro)
         except RuntimeError:
             loop = new_event_loop()
             set_event_loop(loop)
             try:
-                loop.run_until_complete(coro)
+                return loop.run_until_complete(coro)
             finally:
                 loop.close()
                 set_event_loop(None)

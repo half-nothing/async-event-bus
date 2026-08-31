@@ -109,7 +109,7 @@ class EventCallback(Generic[C, R]):
         """
         if iscoroutinefunction(callback):
             return AsyncEventCallback(cast(AsyncCallback[C, R], callback), weight)
-        return SyncEventCallback(callback, weight)
+        return SyncEventCallback(cast(SyncCallback[C, R], callback), weight)
 
 
 class SyncEventCallback(EventCallback[C, R]):

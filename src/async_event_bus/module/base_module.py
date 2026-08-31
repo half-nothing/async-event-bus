@@ -1,12 +1,35 @@
 from abc import ABC
 from asyncio import Semaphore, gather
-from typing import Callable, TypeVar, Generic, Awaitable, Hashable, cast
+from dataclasses import dataclass
+from typing import Callable, TypeVar, Generic, Awaitable, cast
 
-from .module_exceptions import MultipleError
-from ..event import EventCallbackContainer, EventContext, EventInstance, EventType
+from loguru import logger
+
+from .module_exceptions import ExceptionStrategy, MultipleError
+from ..event import EventCallbackContainer, EventContext, EventType
 
 C = TypeVar("C", bound=EventContext)
 R = TypeVar("R")
+
+
+@dataclass
+class EmitResult(Generic[R]):
+    """Outcome of executing a callback container.
+
+    Successful callback outcomes and exceptions are kept in separate lists,
+    so callers never have to filter a mixed bag of results.
+
+    Attributes:
+        results:    Return values of the callbacks that completed successfully,
+                    in execution order (sync callbacks first, then async ones).
+        exceptions: Exceptions raised by the callbacks, in the order they
+                    occurred. Only populated by the ``RETURN`` strategy
+                    (``COLLECT`` raises them as ``MultipleError`` instead,
+                    ``IGNORE`` drops them after logging).
+    """
+
+    results: list[R]
+    exceptions: list[Exception]
 
 
 class BaseModule(ABC, Generic[C, R]):
@@ -15,7 +38,7 @@ class BaseModule(ABC, Generic[C, R]):
     def __init__(
             self,
             max_concurrent_tasks: int = 16,
-            raise_exception: bool = False,
+            exception_strategy: ExceptionStrategy = ExceptionStrategy.COLLECT,
             context_class: type[C] = cast(type[C], EventContext),
     ) -> None:
         """Initialize the base module.
@@ -23,38 +46,39 @@ class BaseModule(ABC, Generic[C, R]):
         Args:
             max_concurrent_tasks:   Maximum number of async callbacks that may execute simultaneously.
                                     Used to prevent resource exhaustion when many events fire at once.
-            raise_exception:        If ``True``, the first exception encountered inside a callback will be re‑raised immediately.
-                                    If ``False``, exceptions are collected and raised as a single ``MultipleError`` after all callbacks have run.
+            exception_strategy:     How callback exceptions are handled. One of
+                                    ``ExceptionStrategy.IGNORE`` (log and continue),
+                                    ``RAISE`` (fail fast), ``COLLECT`` (raise a single
+                                    ``MultipleError`` after execution, default) or
+                                    ``RETURN`` (returned by ``emit`` instead of raised).
             context_class:          The event‑context type to instantiate when emitting events.
                                     Must be a subclass of ``EventContext``.
         """
         # A semaphore caps concurrent async executions to prevent resource exhaustion when many events fire simultaneously.
         # Without it, a burst of events could spawn thousands of coroutines that overwhelm the event loop or external services.
         self._semaphore = Semaphore(max_concurrent_tasks)
-        # raise_exception is stored as a flag so that the error‑handling
-        # strategy can be switched at runtime, e.g. during debugging vs production.
-        self._raise_exception = raise_exception
+        # The exception strategy can be switched at runtime,
+        # e.g. while debugging (RAISE) vs production (COLLECT).
+        self._exception_strategy = exception_strategy
         self._context_class = context_class
 
     @property
-    def raise_exception_immediately(self) -> bool:
-        """Whether exceptions are re‑raised immediately.
+    def exception_strategy(self) -> ExceptionStrategy:
+        """How callback exceptions are currently handled.
 
         Returns:
-            ``True`` if the module is in fail‑fast mode,
-            ``False`` if exceptions are collected.
+            The active :class:`ExceptionStrategy`.
         """
-        return self._raise_exception
+        return self._exception_strategy
 
-    @raise_exception_immediately.setter
-    def raise_exception_immediately(self, value: bool) -> None:
-        """Switch error‑handling strategy at runtime.
+    @exception_strategy.setter
+    def exception_strategy(self, value: ExceptionStrategy) -> None:
+        """Switch the exception handling strategy at runtime.
 
         Args:
-            value:  ``True`` to enable fail‑fast mode.
-                    ``False`` to collect exceptions.
+            value: The new :class:`ExceptionStrategy`.
         """
-        self._raise_exception = value
+        self._exception_strategy = value
 
     async def before_emit(self, event: EventType, ctx: C) -> bool:
         """Terminal node of the cooperative ``before_emit`` chain.
@@ -114,7 +138,7 @@ class BaseModule(ABC, Generic[C, R]):
             handler: Callable[[R], bool] | None = None,
             expand_args: bool = False,
             expand_kwargs: bool = False,
-    ) -> bool:
+    ) -> EmitResult[R]:
         """Run all callbacks stored in *container* against *ctx*.
 
         Execution order:
@@ -122,25 +146,35 @@ class BaseModule(ABC, Generic[C, R]):
         - Synchronous callbacks are invoked sequentially in descending weight order so that side‑effects are deterministic.
         - Asynchronous callbacks are scheduled concurrently via ``asyncio.gather``.
 
-        Weight ordering among asynchronous callbacks is intentionally irrelevant.
+        Exception behavior follows the configured :class:`ExceptionStrategy`:
+
+        - ``IGNORE``:  exceptions are logged and execution continues.
+        - ``RAISE``:   the first exception is re‑raised immediately, aborting the remaining callbacks.
+        - ``COLLECT``: all exceptions are bundled into a single ``MultipleError`` raised after execution.
+        - ``RETURN``:  exceptions are collected in ``EmitResult.exceptions`` and never raised.
 
         Args:
-            container:  The callback container holding all registered handlers for a specific event.
-            ctx:        The event context to pass to each callback.
-            handler:    Optional short‑circuit predicate.
-                        If provided, it is called with each callback return value;
-                        returning ``False`` halts further execution and return ``False`` immediately.
+            container:      The callback container holding all registered handlers for a specific event.
+            ctx:            The event context to pass to each callback.
+            handler:        Optional short‑circuit predicate.
+                            If provided, it is called with each callback return value;
+                            returning ``False`` halts further execution.
+            expand_args:    If ``True``, unpack ``ctx.args`` as positional arguments instead of passing ``ctx``.
+            expand_kwargs:  If ``True``, unpack ``ctx.kwargs`` as keyword arguments instead of passing ``ctx``.
 
         Returns:
-            ``True`` if all callbacks executed without interruption,
-            ``False`` if a ``handler`` predicate returned ``False``.
+            An ``EmitResult`` with successful outcomes in ``results`` and
+            (for the ``RETURN`` strategy) exceptions in ``exceptions``.
 
         Raises:
-            MultipleError:  When ``raise_exception_immediately`` is ``False`` and one or more callbacks raise an exception.
+            MultipleError:  When the strategy is ``COLLECT`` and one or more callbacks raise an exception.
                             The exception bundles all caught exceptions.
-            Exception:      Any callback exception re‑raised directly when ``raise_exception_immediately`` is ``True``.
+            Exception:      Any callback exception re‑raised directly when the strategy is ``RAISE``.
         """
+        strategy = self._exception_strategy
+        results: list[R] = []
         exceptions: list[Exception] = []
+        stopped = False
 
         # Synchronous callbacks are executed sequentially and in weight order.
         # This allows them to have deterministic side‑effects and respects the
@@ -151,61 +185,71 @@ class BaseModule(ABC, Generic[C, R]):
                 call_kwargs = ctx.kwargs if expand_kwargs else {}
                 result = callback(ctx, *call_args, **call_kwargs)
                 if handler and not handler(result):
-                    # A filter returned False.
-                    # Before stopping we raise any already‑collected exceptions
-                    # so that they are not silently lost.
-                    if exceptions:
-                        raise MultipleError(exceptions)
-                    return False
+                    # A filter returned False: stop the chain here,
+                    # before the asynchronous callbacks are scheduled.
+                    # The result is still recorded so that callers (e.g. the
+                    # filter module) can see the blocking outcome.
+                    stopped = True
+                results.append(result)
+                if stopped:
+                    break
             except Exception as e:
-                if self._raise_exception:
+                if strategy is ExceptionStrategy.RAISE:
                     # Fail‑fast mode: stop immediately so that the error can
                     # be debugged with its original traceback.
                     raise e
-                # Otherwise accumulate the exception and continue so that
-                # other handlers still get a chance to run.
-                exceptions.append(e)
-
-        # Prepare async callbacks, each wrapped with the semaphore.
-        # They are gathered together for concurrent execution.
-        # Weight ordering among async handlers is intentionally meaningless.
-        # They all run concurrently anyway.
-        async_handlers = [
-            self._run_with_semaphore(callback, ctx, expand_args, expand_kwargs)
-            for callback in container.async_callback
-        ]
-
-        results: list[R] = []
-        if self._raise_exception:
-            # In fail‑fast mode, gather will propagate the first exception immediately, aborting the remaining async tasks.
-            await gather(*async_handlers, return_exceptions=False)
-        else:
-            # return_exceptions=True is critical: without it, one failing async callback would cancel all others.
-            # By collecting results as exceptions we can separate successes from failures.
-            gathered = await gather(*async_handlers, return_exceptions=True)
-            for item in gathered:
-                if isinstance(item, Exception):
-                    exceptions.append(item)
+                if strategy is ExceptionStrategy.COLLECT:
+                    # Accumulate the exception and continue so that
+                    # other handlers still get a chance to run.
+                    exceptions.append(e)
+                elif strategy is ExceptionStrategy.IGNORE:
+                    logger.warning(f"Exception ignored in callback: {e!r}")
                 else:
-                    # With return_exceptions=True, asyncio only wraps Exception
-                    # instances; a non-Exception item is therefore a genuine result.
-                    results.append(cast(R, item))
+                    # RETURN: keep the exception for the caller instead of raising it.
+                    exceptions.append(e)
 
-        if exceptions:
+        if not stopped:
+            # Prepare async callbacks, each wrapped with the semaphore.
+            # They are gathered together for concurrent execution.
+            # Weight ordering among async handlers is intentionally meaningless.
+            async_handlers = [
+                self._run_with_semaphore(callback, ctx, expand_args, expand_kwargs)
+                for callback in container.async_callback
+            ]
+            if strategy is ExceptionStrategy.RAISE:
+                # In fail‑fast mode, gather propagates the first exception
+                # immediately, aborting the remaining async tasks.
+                await gather(*async_handlers, return_exceptions=False)
+            else:
+                # return_exceptions=True is critical: without it, one failing
+                # async callback would cancel all others.
+                gathered = await gather(*async_handlers, return_exceptions=True)
+                for item in gathered:
+                    if isinstance(item, Exception):
+                        if strategy is ExceptionStrategy.COLLECT:
+                            exceptions.append(item)
+                        elif strategy is ExceptionStrategy.IGNORE:
+                            logger.warning(f"Exception ignored in callback: {item!r}")
+                        else:
+                            # RETURN: keep the exception for the caller.
+                            exceptions.append(item)
+                    elif isinstance(item, BaseException):
+                        # gather(return_exceptions=True) only wraps Exception
+                        # instances; any other BaseException propagates.
+                        raise item
+                    else:
+                        results.append(item)
+
+        if exceptions and strategy is ExceptionStrategy.COLLECT:
             # All collected exceptions are bundled into a single MultipleError
             # so that the caller can inspect every failure instead of just the  first one.
             raise MultipleError(exceptions)
 
-        if not handler:
-            # No short‑circuit logic requested; execution succeeded.
-            return True
+        if handler:
+            # After async execution, apply the handler to each result so that
+            # filter semantics stay consistent for sync and async filters.
+            for r in results:
+                if not handler(r):
+                    break
 
-        # After async execution, apply the handler to each result.
-        # If any returns False, stop further processing.
-        # Though at this point all callbacks have already executed.
-        # This is useful for consistency with filter semantics.
-        for r in results:
-            if not handler(r):
-                return False
-
-        return True
+        return EmitResult(results=results, exceptions=exceptions)

@@ -1,8 +1,9 @@
-from typing import Awaitable, Callable, TypeAlias, TypeVar
+from typing import Awaitable, Callable, TypeAlias, TypeVar, cast
 
 from loguru import logger
 
 from .base_module import BaseModule
+from .module_exceptions import ExceptionStrategy
 from ..event import AbstractEvent, EventType, EventCallbackContainer, EventContext
 
 C = TypeVar("C", bound=EventContext)
@@ -20,17 +21,18 @@ class FilterModule(BaseModule[C, bool]):
     def __init__(
         self,
         max_concurrent_tasks: int = 16,
-        raise_exception: bool = False,
-        context_class: type[C] = EventContext,
+        exception_strategy: ExceptionStrategy = ExceptionStrategy.COLLECT,
+        context_class: type[C] = cast(type[C], EventContext),
     ) -> None:
         """Initialize the filter module.
 
         Args:
             max_concurrent_tasks:   Maximum number of async filters that may run concurrently.
-            raise_exception:        If ``True``, re‑raise filter exceptions immediately.
+            exception_strategy:     How filter exceptions are handled
+                                    (see :class:`ExceptionStrategy`).
             context_class:          ``EventContext`` subclass to use.
         """
-        super().__init__(max_concurrent_tasks, raise_exception, context_class)
+        super().__init__(max_concurrent_tasks, exception_strategy, context_class)
         # Separate containers for global and per‑event filters keep the
         # execution paths independent,
         # so that global rules cannot be accidentally bypassed by event‑specific
@@ -70,10 +72,12 @@ class FilterModule(BaseModule[C, bool]):
         """
         if event not in self._filters:
             return True
-        return await self._execute_callback(
+        result = await self._execute_callback(
             self._filters[event], ctx, lambda x: x,
             expand_args=ctx.expand_args, expand_kwargs=ctx.expand_kwargs,
         )
+        # Filters return bool; any False among the outcomes blocks the event.
+        return all(result.results)
 
     async def _apply_global_filter(self, ctx: C) -> bool:
         """Execute all global filters against *ctx*.
@@ -81,7 +85,8 @@ class FilterModule(BaseModule[C, bool]):
         Global filters are cross‑cutting logic and always receive ``ctx``;
         they are intentionally not affected by ``expand_args``/``expand_kwargs``.
         """
-        return await self._execute_callback(self._global_filters, ctx, lambda x: x)
+        result = await self._execute_callback(self._global_filters, ctx, lambda x: x)
+        return all(result.results)
 
     def global_event_filter(
         self, weight: int = 1

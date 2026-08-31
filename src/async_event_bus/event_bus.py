@@ -1,7 +1,7 @@
-from typing import TypeVar
+from typing import TypeVar, cast
 
 from .event import EventContext
-from .module import CoreModule, FilterModule, InjectModule
+from .module import CoreModule, ExceptionStrategy, FilterModule, InjectModule
 
 C = TypeVar("C", bound=EventContext)
 R = TypeVar("R")
@@ -67,22 +67,24 @@ class EventBus(CoreModule[C, R], InjectModule[C], FilterModule[C]):
 
     --- Exception handling ---
 
-    bus = EventBus(raise_exception=True)   # first exception aborts immediately
-    # default (False): all callbacks run, exceptions collected into MultipleError
+    # One of ExceptionStrategy.IGNORE / RAISE / COLLECT / RETURN:
+    bus = EventBus(exception_strategy=ExceptionStrategy.RAISE)   # fail fast
+    # default COLLECT: all callbacks run, exceptions collected into MultipleError
+    # RETURN: exceptions are returned by emit() instead of being raised
 
     Args:
         max_concurrent_tasks:   Semaphore limit for concurrent async callbacks (default 10)
-        raise_exception:        If True, first exception aborts execution immediately (default False)
+        exception_strategy:     Exception handling strategy (default ExceptionStrategy.COLLECT)
         context_class:          EventContext subclass to instantiate on each emit (default EventContext)
     """
 
     def __init__(
         self,
         max_concurrent_tasks: int = 10,
-        raise_exception: bool = False,
-        context_class: type[C] = EventContext
+        exception_strategy: ExceptionStrategy = ExceptionStrategy.COLLECT,
+        context_class: type[C] = cast(type[C], EventContext)
     ):
-        super().__init__(max_concurrent_tasks, raise_exception, context_class)
+        super().__init__(max_concurrent_tasks, exception_strategy, context_class)
 
     def clear(self):
         super().clear()

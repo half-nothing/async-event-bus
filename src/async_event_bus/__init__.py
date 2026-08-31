@@ -18,6 +18,8 @@ __all__ = [
     "BaseModule",
     "FilterModule",
     "InjectModule",
+    "EmitResult",
+    "ExceptionStrategy",
     "MultipleError",
     "EventBus",
 ]

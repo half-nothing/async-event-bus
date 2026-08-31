@@ -1,8 +1,9 @@
-from typing import Awaitable, Callable, TypeAlias, TypeVar
+from typing import Awaitable, Callable, TypeAlias, TypeVar, cast
 
 from loguru import logger
 
 from .base_module import BaseModule
+from .module_exceptions import ExceptionStrategy
 from ..event import AbstractEvent, EventType, EventCallbackContainer, EventContext
 
 C = TypeVar("C", bound=EventContext)
@@ -24,18 +25,19 @@ class InjectModule(BaseModule[C, None]):
     def __init__(
         self,
         max_concurrent_tasks: int = 16,
-        raise_exception: bool = False,
-        context_class: type[C] = EventContext,
+        exception_strategy: ExceptionStrategy = ExceptionStrategy.COLLECT,
+        context_class: type[C] = cast(type[C], EventContext),
     ) -> None:
         """Initialize the inject module.
 
         Args:
             max_concurrent_tasks:   Maximum number of async injectors that may run concurrently.
                                     Limits pressure on shared resources.
-            raise_exception:        If ``True``, injector exceptions are re‑raised immediately instead of being caught and logged.
+            exception_strategy:     How injector exceptions are handled
+                                    (see :class:`ExceptionStrategy`).
             context_class:          ``EventContext`` subclass to use.
         """
-        super().__init__(max_concurrent_tasks, raise_exception, context_class)
+        super().__init__(max_concurrent_tasks, exception_strategy, context_class)
         # Separate containers keep global injectors isolated from per‑event ones,
         # so that mandatory setup (e.g. authentication) cannot be accidentally
         # skipped by an event‑specific registration.
