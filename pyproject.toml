@@ -1,7 +1,7 @@
 [project]
 name = "async-event-bus"
 version = "1.0.0"
-description = "A simple python event bus for python3"
+description = "A simple and modular async event bus for Python 3.12+"
 authors = [
     { name = "Half_nothing", email = "Half_nothing@163.com" },
 ]
@@ -10,24 +10,56 @@ dependencies = [
 ]
 requires-python = "<4.0,>=3.12"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 keywords = [
     "python",
-    "event-bus"
+    "event-bus",
+    "async",
+    "asyncio",
+    "events",
+    "pubsub",
+    "event-driven",
+    "middleware",
 ]
 classifiers = [
-    "License :: OSI Approved :: MIT License",
     "Development Status :: 5 - Production/Stable",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "Environment :: Console",
     "Intended Audience :: Developers",
-    "Natural Language :: Chinese (Simplified)"
+    "Natural Language :: Chinese (Simplified)",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 
+[project.urls]
+Homepage = "https://github.com/half-nothing/async-event-bus"
+Repository = "https://github.com/half-nothing/async-event-bus"
+Documentation = "https://github.com/half-nothing/async-event-bus#readme"
+Issues = "https://github.com/half-nothing/async-event-bus/issues"
+
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Explicit src-layout package discovery.
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Ship the PEP 561 type stubs (.pyi) and the py.typed marker inside the wheel
+# so that type checkers get a precise, implementation-independent public API
+# contract.
+[tool.setuptools.package-data]
+"async_event_bus" = ["**/*.pyi", "py.typed"]
 
 [tool.pdm]
 distribution = true
