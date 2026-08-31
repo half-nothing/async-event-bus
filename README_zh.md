@@ -313,6 +313,12 @@ class CustomEventBus(CoreModule, CustomModule):
 - `inject.py` — 全局与事件级注入器
 - `exception_strategy.py` — `ExceptionStrategy` 四种异常处理模式（IGNORE / RAISE / COLLECT / RETURN）
 
+## 文档
+
+- [最佳实践](docs/best_practices_zh.md) — 真实应用中的推荐使用模式
+- [架构](docs/architecture_zh.md) — 内部设计：包结构、基于 MRO 的模块组合、
+  发布流水线、执行器以及异常/并发模型
+
 ## 许可证
 
 [MIT](LICENSE)

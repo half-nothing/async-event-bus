@@ -313,6 +313,14 @@ Check the `examples/` folder for runnable, fully commented samples:
 - `inject.py` — global and per-event injectors
 - `exception_strategy.py` — the four `ExceptionStrategy` modes (IGNORE / RAISE / COLLECT / RETURN)
 
+## Documentation
+
+- [Best Practices](docs/best_practices.md) — recommended usage patterns for
+  real applications
+- [Architecture](docs/architecture.md) — internal design: package layout,
+  module composition via MRO, the emission pipeline, the executor and the
+  exception / concurrency model
+
 ## License
 
 [MIT](LICENSE)
