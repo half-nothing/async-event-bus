@@ -1,5 +1,5 @@
 from inspect import iscoroutinefunction
-from typing import Any, Callable, Generic, TypeVar, TypeAlias, Awaitable
+from typing import Any, Callable, Generic, TypeVar, TypeAlias, Awaitable, cast
 
 from loguru import logger
 
@@ -108,7 +108,7 @@ class EventCallback(Generic[C, R]):
             otherwise a ``SyncEventCallback``.
         """
         if iscoroutinefunction(callback):
-            return AsyncEventCallback(callback, weight)
+            return AsyncEventCallback(cast(AsyncCallback[C, R], callback), weight)
         return SyncEventCallback(callback, weight)
 
 
@@ -117,6 +117,10 @@ class SyncEventCallback(EventCallback[C, R]):
 
     The event bus can call this directly without an event loop.
     """
+
+    # Re-declared with the narrower type so that the executor and type checkers
+    # know this wrapper's callback is always synchronous.
+    _callback: SyncCallback[C, R]
 
     def __init__(self, callback: SyncCallback[C, R], weight: int = 1) -> None:
         """Wrap a synchronous callback.
@@ -144,6 +148,10 @@ class AsyncEventCallback(EventCallback[C, R]):
     Wrapping async callables prevents accidental synchronous calls that
     would return a coroutine object instead of the expected result.
     """
+
+    # Re-declared with the narrower type so that ``await self._callback(...)``
+    # type-checks and the executor knows this wrapper is always asynchronous.
+    _callback: AsyncCallback[C, R]
 
     def __init__(self, callback: AsyncCallback[C, R], weight: int = 1) -> None:
         """Wrap an asynchronous callback.
@@ -245,7 +253,9 @@ class EventCallbackContainer(Generic[C, R]):
         """
         if callback in self._sync_callback:
             logger.trace(f"Removing sync callback: {callback}")
-            self._sync_callback.remove(callback)
+            # ``in`` relies on __eq__ semantics which accept both wrappers and
+            # raw callables; narrow the union for the list remove() call.
+            self._sync_callback.remove(cast(SyncEventCallback[C, R], callback))
 
     def remove_async_callback(
         self, callback: AsyncEventCallback[C, R] | Callback[C, R]
@@ -256,7 +266,8 @@ class EventCallbackContainer(Generic[C, R]):
         """
         if callback in self._async_callback:
             logger.trace(f"Removing async callback: {callback}")
-            self._async_callback.remove(callback)
+            # See `remove_sync_callback` for the rationale behind the cast.
+            self._async_callback.remove(cast(AsyncEventCallback[C, R], callback))
 
     def remove_callback(
         self, callback: EventCallback[C, R] | Callback[C, R]

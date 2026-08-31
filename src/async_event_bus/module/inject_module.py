@@ -72,13 +72,24 @@ class InjectModule(BaseModule[C, None]):
         return await super().before_emit(event, ctx)
 
     async def _apply_event_injects(self, event: EventType, ctx: C) -> None:
-        """Execute injectors registered for *ctx.event*."""
+        """Execute injectors registered for *ctx.event*.
+
+        Event‑specific injectors honor ``expand_args``/``expand_kwargs`` so that
+        they can receive the event payload directly instead of ``ctx``.
+        """
         if event not in self._injects:
             return
-        await self._execute_callback(self._injects[event], ctx)
+        await self._execute_callback(
+            self._injects[event], ctx,
+            expand_args=ctx.expand_args, expand_kwargs=ctx.expand_kwargs,
+        )
 
     async def _apply_global_injects(self, ctx: C) -> None:
-        """Execute all global injectors against *ctx*."""
+        """Execute all global injectors against *ctx*.
+
+        Global injectors are cross‑cutting logic and always receive ``ctx``;
+        they are intentionally not affected by ``expand_args``/``expand_kwargs``.
+        """
         await self._execute_callback(self._global_injects, ctx)
 
     def global_event_inject(

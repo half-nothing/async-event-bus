@@ -1,11 +1,10 @@
 from asyncio import get_event_loop, new_event_loop, run_coroutine_threadsafe, set_event_loop
-from typing import Awaitable, Callable, TypeAlias, TypeVar
+from typing import Awaitable, Callable, TypeAlias, TypeVar, cast
 
 from loguru import logger
 
 from .base_module import BaseModule
-from .. import AbstractEvent
-from ..event import EventType, EventInstance, EventCallbackContainer, EventContext
+from ..event import AbstractEvent, EventType, EventInstance, EventCallbackContainer, EventContext
 
 C = TypeVar("C", bound=EventContext)
 R = TypeVar("R")
@@ -16,10 +15,10 @@ class CoreModule(BaseModule[C, R]):
     """Provides subscribe, unsubscribe, and emit operations for the event bus."""
 
     def __init__(
-        self,
-        max_concurrent_tasks: int = 16,
-        raise_exception: bool = False,
-        context_class: type[C] = EventContext,
+            self,
+            max_concurrent_tasks: int = 16,
+            raise_exception: bool = False,
+            context_class: type[C] = EventContext,
     ) -> None:
         """Initialize the core module.
 
@@ -37,7 +36,7 @@ class CoreModule(BaseModule[C, R]):
         self._subscribers: dict[EventType, EventCallbackContainer[C, R]] = {}
 
     def on(
-        self, event: EventType, *, weight: int = 1
+            self, event: EventType, *, weight: int = 1
     ) -> Callable[[Callback[C, R]], Callback[C, R]]:
         """Decorator that registers a callback for *event*.
 
@@ -61,7 +60,7 @@ class CoreModule(BaseModule[C, R]):
         return decorator
 
     def subscribe(
-        self, event: EventType, callback: Callback[C, R], *, weight: int = 1
+            self, event: EventType, callback: Callback[C, R], *, weight: int = 1
     ) -> None:
         """Register *callback* to be invoked when *event* is emitted.
 
@@ -104,7 +103,14 @@ class CoreModule(BaseModule[C, R]):
         """
         return await super().before_emit(event, ctx)
 
-    async def emit(self, event: EventInstance, *args, **kwargs) -> None:
+    async def emit(
+            self,
+            event: EventInstance,
+            *args,
+            expand_args: bool = False,
+            expand_kwargs: bool = False,
+            **kwargs,
+    ) -> None:
         """Emit an event asynchronously.
 
         Constructs a context, runs the ``before_emit``, and then executes all registered callbacks.
@@ -116,22 +122,44 @@ class CoreModule(BaseModule[C, R]):
           their relative weights are irrelevant at that point.
 
         Args:
-            event: The event to emit.
+            event:          The event to emit.
+            expand_args:    If ``True``, unpack ``ctx.args`` as positional arguments to each callback
+                            instead of passing the ``EventContext`` object.
+            expand_kwargs:  If ``True``, unpack ``ctx.kwargs`` as keyword arguments to each callback
+                            instead of passing the ``EventContext`` object.
         """
         ctx: C = self._context_class(event=event, args=list(args), kwargs=kwargs)
+        # Store the unpacking options on the context so that the whole
+        # before_emit chain (injectors, filters) can honor them too,
+        # without changing the before_emit signature.
+        ctx.expand_args = expand_args
+        ctx.expand_kwargs = expand_kwargs
 
+        # Normalize the lookup key: an AbstractEvent instance maps to its class.
+        event_key: EventType
         if isinstance(event, AbstractEvent):
-            event = type(event)
+            event_key = type(event)
+        else:
+            event_key = cast(EventType, event)
 
-        if not await self.before_emit(event, ctx):
+        if not await self.before_emit(event_key, ctx):
             return
 
-        if event not in self._subscribers:
+        if event_key not in self._subscribers:
             return
 
-        await self._execute_callback(self._subscribers[event], ctx)
+        await self._execute_callback(
+            self._subscribers[event_key], ctx, expand_args=expand_args, expand_kwargs=expand_kwargs
+        )
 
-    def emit_sync(self, event: EventInstance, *args, **kwargs) -> None:
+    def emit_sync(
+            self,
+            event: EventInstance,
+            *args,
+            expand_args: bool = False,
+            expand_kwargs: bool = False,
+            **kwargs,
+    ) -> None:
         """Blocking convenience wrapper around `emit`.
 
         Handles three event‑loop scenarios so that synchronous code can safely trigger the asynchronous emit path:
@@ -141,26 +169,23 @@ class CoreModule(BaseModule[C, R]):
         3. No loop exists → create a temporary loop, execute, and tear it down.
 
         Args:
-            event: The event to emit.
+            event:          The event to emit.
+            expand_args:    Forwarded to :meth:`emit`.
+            expand_kwargs:  Forwarded to :meth:`emit`.
         """
+        coro = self.emit(event, *args, expand_args=expand_args, expand_kwargs=expand_kwargs, **kwargs)
         try:
             loop = get_event_loop()
             if loop and loop.is_running():
-                # Running loop — must not call run_until_complete;
-                # schedule thread‑safely to avoid deadlocks.
-                future = run_coroutine_threadsafe(
-                    self.emit(event, *args, **kwargs), loop
-                )
+                future = run_coroutine_threadsafe(coro, loop)
                 future.result()
             else:
-                # Loop exists but isn't running — safe to block.
-                loop.run_until_complete(self.emit(event, *args, **kwargs))
+                loop.run_until_complete(coro)
         except RuntimeError:
-            # No event loop in this thread — create a temporary one.
             loop = new_event_loop()
             set_event_loop(loop)
             try:
-                loop.run_until_complete(self.emit(event, *args, **kwargs))
+                loop.run_until_complete(coro)
             finally:
                 loop.close()
                 set_event_loop(None)

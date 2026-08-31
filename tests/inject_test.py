@@ -8,7 +8,7 @@ from loguru import logger
 
 from async_event_bus import EnumEvent, EventBus, EventContext
 
-bus = EventBus()
+bus: EventBus = EventBus()
 logger.remove()
 logger.add(sys.stdout, level="TRACE")
 

@@ -1,9 +1,9 @@
 from abc import ABC
 from asyncio import Semaphore, gather
-from typing import Callable, TypeVar, Generic, Awaitable, Hashable
+from typing import Callable, TypeVar, Generic, Awaitable, Hashable, cast
 
 from .module_exceptions import MultipleError
-from ..event import EventCallbackContainer, EventContext, EventInstance,EventType
+from ..event import EventCallbackContainer, EventContext, EventInstance, EventType
 
 C = TypeVar("C", bound=EventContext)
 R = TypeVar("R")
@@ -13,10 +13,10 @@ class BaseModule(ABC, Generic[C, R]):
     """Abstract base for all bus modules."""
 
     def __init__(
-        self,
-        max_concurrent_tasks: int = 16,
-        raise_exception: bool = False,
-        context_class: type[C] = EventContext,
+            self,
+            max_concurrent_tasks: int = 16,
+            raise_exception: bool = False,
+            context_class: type[C] = cast(type[C], EventContext),
     ) -> None:
         """Initialize the base module.
 
@@ -56,7 +56,7 @@ class BaseModule(ABC, Generic[C, R]):
         """
         self._raise_exception = value
 
-    async def before_emit(self, event: EventType, ctx: EventContext) -> bool:
+    async def before_emit(self, event: EventType, ctx: C) -> bool:
         """Terminal node of the cooperative ``before_emit`` chain.
 
         Always returns ``True`` so that, if no other module interrupts,
@@ -81,7 +81,11 @@ class BaseModule(ABC, Generic[C, R]):
         pass
 
     async def _run_with_semaphore(
-        self, coroutine: Callable[[C], Awaitable[R]], ctx: C
+            self,
+            coroutine: Callable[[C], Awaitable[R]],
+            ctx: C,
+            expand_args: bool = False,
+            expand_kwargs: bool = False,
     ) -> R:
         """Wrap a single async callback with the concurrency semaphore.
 
@@ -90,20 +94,26 @@ class BaseModule(ABC, Generic[C, R]):
         so that waiting tasks can proceed promptly.
 
         Args:
-            coroutine:  An async callable that accepts an event context and returns ``R``.
-            ctx:        The event context to pass to the callable.
+            coroutine:      An async callable that accepts an event context and returns ``R``.
+            ctx:            The event context to pass to the callable.
+            expand_args:    If ``True``, unpack ``ctx.args`` as positional arguments instead of passing ``ctx``.
+            expand_kwargs:  If ``True``, unpack ``ctx.kwargs`` as keyword arguments instead of passing ``ctx``.
 
         Returns:
-            The return value of ``coroutine(ctx)``.
+            The return value of the coroutine.
         """
         async with self._semaphore:
-            return await coroutine(ctx)
+            call_args = ctx.args if expand_args else []
+            call_kwargs = ctx.kwargs if expand_kwargs else {}
+            return await coroutine(ctx, *call_args, **call_kwargs)
 
     async def _execute_callback(
-        self,
-        container: EventCallbackContainer[C, R],
-        ctx: C,
-        handler: Callable[[R], bool] | None = None,
+            self,
+            container: EventCallbackContainer[C, R],
+            ctx: C,
+            handler: Callable[[R], bool] | None = None,
+            expand_args: bool = False,
+            expand_kwargs: bool = False,
     ) -> bool:
         """Run all callbacks stored in *container* against *ctx*.
 
@@ -137,7 +147,9 @@ class BaseModule(ABC, Generic[C, R]):
         # weight‑based priority that users explicitly set.
         for callback in container.sync_callback:
             try:
-                result = callback(ctx)
+                call_args = ctx.args if expand_args else []
+                call_kwargs = ctx.kwargs if expand_kwargs else {}
+                result = callback(ctx, *call_args, **call_kwargs)
                 if handler and not handler(result):
                     # A filter returned False.
                     # Before stopping we raise any already‑collected exceptions
@@ -159,19 +171,25 @@ class BaseModule(ABC, Generic[C, R]):
         # Weight ordering among async handlers is intentionally meaningless.
         # They all run concurrently anyway.
         async_handlers = [
-            self._run_with_semaphore(callback, ctx)
+            self._run_with_semaphore(callback, ctx, expand_args, expand_kwargs)
             for callback in container.async_callback
         ]
 
-        results: tuple[R] = tuple()
+        results: list[R] = []
         if self._raise_exception:
             # In fail‑fast mode, gather will propagate the first exception immediately, aborting the remaining async tasks.
             await gather(*async_handlers, return_exceptions=False)
         else:
             # return_exceptions=True is critical: without it, one failing async callback would cancel all others.
             # By collecting results as exceptions we can separate successes from failures.
-            results = await gather(*async_handlers, return_exceptions=True)
-            exceptions.extend([r for r in results if isinstance(r, Exception)])
+            gathered = await gather(*async_handlers, return_exceptions=True)
+            for item in gathered:
+                if isinstance(item, Exception):
+                    exceptions.append(item)
+                else:
+                    # With return_exceptions=True, asyncio only wraps Exception
+                    # instances; a non-Exception item is therefore a genuine result.
+                    results.append(cast(R, item))
 
         if exceptions:
             # All collected exceptions are bundled into a single MultipleError

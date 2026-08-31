@@ -2,7 +2,7 @@ from abc import ABC
 from dataclasses import dataclass, field
 from enum import Enum
 from time import time
-from typing import Generic, TypeVar, Hashable
+from typing import Generic, TypeVar
 
 
 class EnumEvent(Enum):
@@ -38,3 +38,8 @@ class EventContext(Generic[E]):
     timestamp: float = field(default_factory=time)  # Unix timestamp set at emit time
     args: list = field(default_factory=list)
     kwargs: dict = field(default_factory=dict)
+    # Scheduling options set by emit(); they tell filters/injectors/subscribers
+    # whether ctx.args / ctx.kwargs should be unpacked when invoking callbacks.
+    # init=False keeps the constructor signature stable for EventContext subclasses.
+    expand_args: bool = field(default=False, init=False)
+    expand_kwargs: bool = field(default=False, init=False)

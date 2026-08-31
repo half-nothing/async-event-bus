@@ -4,53 +4,47 @@ import asyncio
 import sys
 from datetime import datetime
 from enum import auto
-from typing import Union
 
 from loguru import logger
 
-from async_event_bus import BaseBus, BaseModule, EnumEvent
+from async_event_bus import BaseModule, CoreModule, EnumEvent, EventContext, EventType
 
 
-# 自定义事件总线模块, 需要继承自BaseModule
-class CustomModule(BaseModule):
+# 自定义事件总线模块，需要继承自BaseModule
+# 通过覆写 before_emit 参与事件传播链：
+#   返回 False 终止本次事件传播；返回 True 继续传播
+# 也可以在这里修改 ctx（例如向 ctx.kwargs 注入数据）
+# Custom event bus module, must inherit from BaseModule
+# Override before_emit to take part in the propagation chain:
+#   returning False stops the event; returning True continues
+# You can also mutate ctx here (e.g. inject data into ctx.kwargs)
+class CustomModule(BaseModule[EventContext, bool]):
+    async def before_emit(self, event: EventType, ctx: EventContext) -> bool:
+        logger.info(f"Resolve event: {event}, {ctx.args}, {ctx.kwargs}")
+        if event == MessageEvent.MESSAGE_DELETE:
+            logger.info(f"Reject delete message: {event}")
+            return False
+        ctx.kwargs["timestamp"] = datetime.now()
+        return await super().before_emit(event, ctx)
 
-    # 执行模块逻辑, 注意这里的args和kwargs是变量而不是可变变量，他们接受事件总线传递过来的参数，并可以对这些参数进行修改
-    # 返回True会终止此次事件的传播
-    # Executing the module logic, note that args and kwargs here are variables rather than variables,
-    # and they accept the parameters passed by the event bus and can modify them
-    # Returning to True will stop the propagation of the event
-    async def resolve(self, event: Union[EnumEvent, str], args, kwargs) -> bool:
-        logger.info(f"Resolve event: {event}, {args}, {kwargs}")
-        return False
-
-    # 清理模块
+    # 清理模块状态
     # Clean up the module
     def clear(self) -> None:
         pass
 
 
-# 自定义事件总线，可以通过继承或者组合来使用模块
-# Custom event bus. modules can be used by inheritance or combination
-class CustomEventBus(BaseBus, CustomModule):
-    def __init__(self) -> None:
-        super().__init__()
-        self._module = CustomModule()
-
-    async def before_emit(self, event, ctx: Union[EnumEvent, str]) -> tuple[bool, dict]:
-        # 这种也可以，但是这样外部调用模块接口会比较麻烦
-        # This is also possible, but it will be more troublesome to call the module interface externally
-        # if await self._module.resolve(event, args, kwargs):
-        #     return True
-        if await CustomModule.resolve(self, event, args, kwargs):
-            return True, {}
-        if event == MessageEvent.MESSAGE_DELETE:
-            logger.info(f"Reject delete message: {event}")
-            return True, {}
-        return False, {"timestamp": datetime.now()}
+# 自定义事件总线：通过继承组合 CoreModule 与自定义模块
+# EventBus 本身也是通过 MRO 组合 CoreModule、InjectModule、FilterModule 得到的，
+# 因此自定义模块可以用同样的方式加入传播链
+# Custom event bus: combine CoreModule with a custom module via inheritance (MRO)
+# EventBus itself is built the same way (CoreModule + InjectModule + FilterModule),
+# so custom modules can join the propagation chain the same way
+class CustomEventBus(CoreModule, CustomModule):
+    pass
 
 
 # 创建自定义事件总线实例
-# Create an event bus instance
+# Create a custom event bus instance
 bus = CustomEventBus()
 
 # 设置日志级别
@@ -59,8 +53,8 @@ logger.remove()
 logger.add(sys.stdout, level="TRACE")
 
 
-# 通过继承Event类创建自定义事件
-# Create custom events by inheriting the Event class
+# 通过继承EnumEvent类创建自定义事件
+# Create custom events by inheriting the EnumEvent class
 class MessageEvent(EnumEvent):
     MESSAGE_CREATE = auto()
     MESSAGE_DELETE = auto()
@@ -69,19 +63,24 @@ class MessageEvent(EnumEvent):
 # 然后可以为自定义事件注册回调函数
 # You can then register a callback function for custom events
 @bus.on(MessageEvent.MESSAGE_CREATE)
-async def async_message_create(message: str, *args, **kwargs) -> None:
+async def async_message_create(ctx: EventContext) -> None:
+    message = ctx.args[0]
     logger.info(f"Async message creating: {message}")
-    logger.info(f"Kwargs: {kwargs}")
+    logger.info(f"Kwargs: {ctx.kwargs}")
 
 
 @bus.on(MessageEvent.MESSAGE_DELETE)
-async def async_message_delete(message: str, *args, **kwargs) -> None:
+async def async_message_delete(ctx: EventContext) -> None:
+    message = ctx.args[0]
     logger.info(f"Async message deleting: {message}")
 
 
 async def main():
     # 通过 asyncio.gather 同时触发多个事件
+    # 删除事件会被自定义模块的 before_emit 拒绝，因此 async_message_delete 不会被执行
     # Trigger multiple events at the same time via asyncio.gather
+    # Delete events are rejected by the custom module's before_emit,
+    # so async_message_delete never runs
     await asyncio.gather(
         bus.emit(MessageEvent.MESSAGE_CREATE, "Hello"),
         bus.emit(MessageEvent.MESSAGE_CREATE, "This is a test message"),
@@ -89,27 +88,6 @@ async def main():
         bus.emit(MessageEvent.MESSAGE_CREATE, "This is also a test message"),
         bus.emit(MessageEvent.MESSAGE_DELETE, "Delete some message")
     )
-    # 输出示例
-    # Output example
-    # D:\WorkSpace\python\py-event-bus\.venv\Scripts\python.exe D:\WorkSpace\python\py-event-bus\examples\custom_event_bus_module.py
-    # 2025-07-29 19:25:43.832 | TRACE    | async_event_bus.event.event_callback_container:add_async_callback:31 - Adding async callback: EventCallback(callback=<function async_message_create at 0x000001F9F66B39C0>, weight=1, async=True)
-    # 2025-07-29 19:25:43.832 | DEBUG    | async_event_bus.module.base_bus:decorator:45 - async_message_create has subscribed to MessageEvent.MESSAGE_CREATE, weight=1
-    # 2025-07-29 19:25:43.832 | TRACE    | async_event_bus.event.event_callback_container:add_async_callback:31 - Adding async callback: EventCallback(callback=<function async_message_delete at 0x000001F9F66B3B00>, weight=1, async=True)
-    # 2025-07-29 19:25:43.832 | DEBUG    | async_event_bus.module.base_bus:decorator:45 - async_message_delete has subscribed to MessageEvent.MESSAGE_DELETE, weight=1
-    # 2025-07-29 19:25:43.834 | INFO     | __main__:resolve:23 - Resolve event: MessageEvent.MESSAGE_CREATE, ('Hello',), {}
-    # 2025-07-29 19:25:43.834 | INFO     | __main__:resolve:23 - Resolve event: MessageEvent.MESSAGE_CREATE, ('This is a test message',), {}
-    # 2025-07-29 19:25:43.834 | INFO     | __main__:resolve:23 - Resolve event: MessageEvent.MESSAGE_CREATE, ('Send from python',), {}
-    # 2025-07-29 19:25:43.834 | INFO     | __main__:resolve:23 - Resolve event: MessageEvent.MESSAGE_CREATE, ('This is also a test message',), {}
-    # 2025-07-29 19:25:43.834 | INFO     | __main__:resolve:23 - Resolve event: MessageEvent.MESSAGE_DELETE, ('Delete some message',), {}
-    # 2025-07-29 19:25:43.834 | INFO     | __main__:before_emit:39 - Reject delete message: MessageEvent.MESSAGE_DELETE
-    # 2025-07-29 19:25:43.834 | INFO     | __main__:async_message_create:65 - Async message creating: Hello
-    # 2025-07-29 19:25:43.834 | INFO     | __main__:async_message_create:66 - Kwargs: {'timestamp': datetime.datetime(2025, 7, 29, 19, 25, 43, 834489)}
-    # 2025-07-29 19:25:43.834 | INFO     | __main__:async_message_create:65 - Async message creating: This is a test message
-    # 2025-07-29 19:25:43.834 | INFO     | __main__:async_message_create:66 - Kwargs: {'timestamp': datetime.datetime(2025, 7, 29, 19, 25, 43, 834561)}
-    # 2025-07-29 19:25:43.834 | INFO     | __main__:async_message_create:65 - Async message creating: Send from python
-    # 2025-07-29 19:25:43.834 | INFO     | __main__:async_message_create:66 - Kwargs: {'timestamp': datetime.datetime(2025, 7, 29, 19, 25, 43, 834594)}
-    # 2025-07-29 19:25:43.834 | INFO     | __main__:async_message_create:65 - Async message creating: This is also a test message
-    # 2025-07-29 19:25:43.834 | INFO     | __main__:async_message_create:66 - Kwargs: {'timestamp': datetime.datetime(2025, 7, 29, 19, 25, 43, 834622)}
 
 
 # 程序入口

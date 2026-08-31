@@ -63,13 +63,24 @@ class FilterModule(BaseModule[C, bool]):
         return await super().before_emit(event, ctx)
 
     async def _apply_filter(self, event: EventType, ctx: C) -> bool:
-        """Execute event‑specific filters registered for *ctx.event*."""
+        """Execute event‑specific filters registered for *ctx.event*.
+
+        Event‑specific filters honor ``expand_args``/``expand_kwargs`` so that
+        they can receive the event payload directly instead of ``ctx``.
+        """
         if event not in self._filters:
             return True
-        return await self._execute_callback(self._filters[event], ctx, lambda x: x)
+        return await self._execute_callback(
+            self._filters[event], ctx, lambda x: x,
+            expand_args=ctx.expand_args, expand_kwargs=ctx.expand_kwargs,
+        )
 
     async def _apply_global_filter(self, ctx: C) -> bool:
-        """Execute all global filters against *ctx*."""
+        """Execute all global filters against *ctx*.
+
+        Global filters are cross‑cutting logic and always receive ``ctx``;
+        they are intentionally not affected by ``expand_args``/``expand_kwargs``.
+        """
         return await self._execute_callback(self._global_filters, ctx, lambda x: x)
 
     def global_event_filter(

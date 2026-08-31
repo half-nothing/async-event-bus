@@ -7,7 +7,7 @@ from loguru import logger
 
 from async_event_bus import EnumEvent, EventBus, EventContext
 
-bus = EventBus()
+bus: EventBus = EventBus()
 logger.remove()
 logger.add(sys.stdout, level="TRACE")
 
@@ -22,9 +22,10 @@ async def global_filter(ctx: EventContext) -> bool:
     return True
 
 
-@bus.event_filter(MessageEvent.MESSAGE_CREATE)
-async def message_filter(ctx: EventContext) -> bool:
-    message = ctx.args[0]
+# NOTE: expand_args=True passes the payload as extra positional args, which the
+# library types as Callable[[C], ...] and cannot express, hence the ignore below.
+@bus.event_filter(MessageEvent.MESSAGE_CREATE)  # type: ignore[arg-type]
+async def message_filter(ctx: EventContext, message: str) -> bool:
     logger.info(f"Message filter called")
     if message.find("forbidden") != -1:
         logger.info(f"Forbidden message found: {message}")
@@ -32,9 +33,8 @@ async def message_filter(ctx: EventContext) -> bool:
     return True
 
 
-@bus.on(MessageEvent.MESSAGE_CREATE)
-async def async_message_create(ctx: EventContext) -> None:
-    message = ctx.args[0]
+@bus.on(MessageEvent.MESSAGE_CREATE)  # type: ignore[arg-type]
+async def async_message_create(ctx: EventContext, message: str) -> None:
     assert message.find("forbidden") == -1
     logger.info(f"Async message creating: {message}")
 
@@ -42,8 +42,8 @@ async def async_message_create(ctx: EventContext) -> None:
 @pytest.mark.asyncio
 async def test_filter():
     await asyncio.gather(
-        bus.emit(MessageEvent.MESSAGE_CREATE, "This is a test message"),
-        bus.emit(MessageEvent.MESSAGE_CREATE, "This is a forbidden test message")
+        bus.emit(MessageEvent.MESSAGE_CREATE, "This is a test message", expand_args=True),
+        bus.emit(MessageEvent.MESSAGE_CREATE, "This is a forbidden test message", expand_args=True)
     )
 
 
