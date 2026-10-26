@@ -28,7 +28,7 @@ class MessageEvent(EnumEvent):
 # 你也可以通过继承AbstractEvent类创建自定义事件
 # You can also create custom events by inheriting the AbstractEvent class
 class LifeCycleEvent(AbstractEvent):
-    def __init__(self, online: bool, status: bool):
+    def __init__(self, online: bool, status: bool) -> None:
         self.online = online
         self.status = status
 
@@ -48,15 +48,15 @@ async def async_message_delete(ctx: EventContext) -> None:
 
 
 @bus.on(LifeCycleEvent)
-async def async_life_cycle(ctx: EventContext) -> None:
+async def async_life_cycle(ctx: EventContext[LifeCycleEvent]) -> None:
     # emit 时直接传入 AbstractEvent 实例，实例可通过 ctx.event 访问
     # Pass an AbstractEvent instance directly to emit;
     # the instance is then available via ctx.event
-    event = ctx.event  # type: LifeCycleEvent
+    event = ctx.event
     logger.info(f"Async life_cycle: {event.online}, {event.status}")
 
 
-async def main():
+async def main() -> None:
     # 通过 asyncio.gather 同时触发多个事件
     # Trigger multiple events at the same time via asyncio.gather
     await asyncio.gather(

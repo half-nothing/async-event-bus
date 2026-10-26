@@ -16,7 +16,7 @@ from async_event_bus import CoreModule, EnumEvent, EventContext, EventType
 # so that the underlying features, injectors, and filters are all present by default
 # If you want to customize the event bus a step further, inherit the CoreModule class
 # CoreModule implements only the most basic subscription and publishing functions
-class CustomEventBus(CoreModule):
+class CustomEventBus(CoreModule[EventContext, None]):
     # 这个函数会在事件开始传播之前调用，返回 False 可以终止这次事件传播
     # 也可以在这里直接修改 ctx（例如向 ctx.kwargs 注入数据）
     # This function is called before the event starts propagating
